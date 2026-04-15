@@ -1,0 +1,786 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lexx.example/schemas/s1000d/fault-data-module.schema.json",
+  "title": "LexX Canonical S1000D Fault Data Module",
+  "description": "Canonical JSON schema for a fault data module mapped from xTract2 intermediate structures and aligned to S1000D fault module semantics before XML serialization and CSDB storage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recordId",
+    "recordType",
+    "mode",
+    "sourceDocumentId",
+    "sourceSectionIds",
+    "header",
+    "content",
+    "validationStatus"
+  ],
+  "properties": {
+    "recordId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "System-generated unique identifier for the canonical fault data module record."
+    },
+    "recordType": {
+      "const": "S1000D_FaultDataModule"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["faultReporting", "faultIsolation"],
+      "description": "Exactly one content mode must be populated and must match this value."
+    },
+    "sourceDocumentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceSectionIds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sourcePages": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "uniqueItems": true
+    },
+    "classification": {
+      "$ref": "#/$defs/classification"
+    },
+    "header": {
+      "$ref": "#/$defs/header"
+    },
+    "content": {
+      "$ref": "#/$defs/content"
+    },
+    "mappingVersion": {
+      "type": "string"
+    },
+    "validationStatus": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "schema_failed",
+        "completeness_failed",
+        "business_rule_failed",
+        "review_required",
+        "approved",
+        "rejected",
+        "stored"
+      ]
+    },
+    "validationResults": {
+      "$ref": "#/$defs/validationResults"
+    },
+    "xmlMeta": {
+      "$ref": "#/$defs/xmlMeta"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "mode": { "const": "faultReporting" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "required": ["faultReporting"],
+            "properties": {
+              "faultReporting": { "$ref": "#/$defs/faultReporting" },
+              "faultIsolation": { "type": "null" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "mode": { "const": "faultIsolation" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "required": ["faultIsolation"],
+            "properties": {
+              "faultReporting": { "type": "null" },
+              "faultIsolation": { "$ref": "#/$defs/faultIsolation" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "xmlMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "schemaSource": { "type": "string" },
+        "serializationTarget": { "type": "string" }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "confidence", "method"],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "const": "S1000D"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "method": {
+          "type": "string",
+          "enum": ["rules", "llm", "ml", "llm+rules", "ml+rules", "manual"]
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dmCode", "language", "issueInfo", "issueDate", "dmTitle"],
+      "properties": {
+        "dmCode": { "$ref": "#/$defs/dmCode" },
+        "language": { "$ref": "#/$defs/language" },
+        "issueInfo": { "$ref": "#/$defs/issueInfo" },
+        "issueDate": { "$ref": "#/$defs/issueDate" },
+        "dmTitle": { "$ref": "#/$defs/dmTitle" }
+      }
+    },
+    "dmCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelIdentCode",
+        "systemDiffCode",
+        "systemCode",
+        "subSystemCode",
+        "subSubSystemCode",
+        "assyCode",
+        "disassyCode",
+        "disassyCodeVariant",
+        "infoCode",
+        "infoCodeVariant",
+        "itemLocationCode"
+      ],
+      "properties": {
+        "modelIdentCode": { "type": "string", "pattern": "^[A-Z0-9]{2,14}$" },
+        "systemDiffCode": { "type": "string", "pattern": "^[A-Z0-9]{1,4}$" },
+        "systemCode": { "type": "string", "pattern": "^[A-Z0-9]{2,3}$" },
+        "subSystemCode": { "type": "string", "pattern": "^[A-Z0-9]{1}$" },
+        "subSubSystemCode": { "type": "string", "pattern": "^[A-Z0-9]{1}$" },
+        "assyCode": { "type": "string", "pattern": "^([A-Z0-9]{2}|[A-Z0-9]{4})$" },
+        "disassyCode": { "type": "string", "pattern": "^[A-Z0-9]{2}$" },
+        "disassyCodeVariant": { "type": "string", "pattern": "^[A-Z0-9]{1,3}$" },
+        "infoCode": { "type": "string", "pattern": "^[A-Z0-9]{3}$" },
+        "infoCodeVariant": { "type": "string", "pattern": "^[A-Z0-9]{1}$" },
+        "itemLocationCode": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D", "T"]
+        },
+        "learnCode": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Z0-9]{1,3}$"
+        },
+        "learnEventCode": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Z0-9]{1,3}$"
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["languageIsoCode", "countryIsoCode"],
+      "properties": {
+        "languageIsoCode": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+        "countryIsoCode": { "type": "string", "pattern": "^[A-Z]{2}$" }
+      }
+    },
+    "issueInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issueNumber", "inWork"],
+      "properties": {
+        "issueNumber": { "type": "string", "pattern": "^\\d{3}$" },
+        "inWork": { "type": "string", "pattern": "^\\d{2}$" }
+      }
+    },
+    "issueDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["year", "month", "day"],
+      "properties": {
+        "year": { "type": "string", "pattern": "^\\d{4}$" },
+        "month": { "type": "string", "pattern": "^(0[1-9]|1[0-2])$" },
+        "day": { "type": "string", "pattern": "^(0[1-9]|[12]\\d|3[01])$" }
+      }
+    },
+    "dmTitle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["techName"],
+      "properties": {
+        "techName": { "type": "string", "minLength": 1 },
+        "infoName": { "type": ["string", "null"] },
+        "infoNameVariant": { "type": ["string", "null"] }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refs", "warningsAndCautions"],
+      "properties": {
+        "refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "referencedApplicGroup": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/applicRef" }
+        },
+        "warningsAndCautions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/noteLike" }
+        },
+        "preliminaryRqmts": { "$ref": "#/$defs/preliminaryRqmts" },
+        "faultReporting": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/faultReporting" }
+          ]
+        },
+        "faultIsolation": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/faultIsolation" }
+          ]
+        }
+      }
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "targetDmCode": { "type": "string" },
+        "targetId": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "applicRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "applicabilityId": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "noteLike": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "text"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["warning", "caution", "note", "remark"]
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "sourceChunkId": { "type": "string" }
+      }
+    },
+    "commonInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "paragraphs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/paragraph" }
+        },
+        "figures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/figureRef" }
+        }
+      }
+    },
+    "paragraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "sourceChunkId": { "type": "string" }
+      }
+    },
+    "figureRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "figureId": { "type": "string" },
+        "caption": { "type": "string" }
+      }
+    },
+    "preliminaryRqmts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reqCondGroup",
+        "reqSupportEquips",
+        "reqSupplies",
+        "reqSpares",
+        "reqSafety"
+      ],
+      "properties": {
+        "productionMaintData": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/typedText" }
+        },
+        "reqCondGroup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conditions"],
+          "properties": {
+            "conditions": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/typedText" }
+            }
+          }
+        },
+        "reqPersons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requiredPerson" }
+        },
+        "reqTechInfoGroup": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "reqSupportEquips": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSupplies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSpares": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSafety": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["warnings", "cautions", "notes"],
+          "properties": {
+            "warnings": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            },
+            "cautions": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            },
+            "notes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            }
+          }
+        }
+      }
+    },
+    "typedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "sourceChunkId": { "type": "string" }
+      }
+    },
+    "requiredPerson": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 },
+        "skillLevel": { "type": "string" }
+      }
+    },
+    "itemRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "identNumber": { "type": "string" },
+        "quantity": { "type": "number", "minimum": 0 },
+        "unit": { "type": "string" },
+        "sourceTableId": { "type": "string" }
+      }
+    },
+    "faultReporting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["faultEntries"],
+      "properties": {
+        "commonInfo": { "$ref": "#/$defs/commonInfo" },
+        "preliminaryRqmts": { "$ref": "#/$defs/preliminaryRqmts" },
+        "closeRqmts": { "$ref": "#/$defs/closeRqmts" },
+        "faultEntries": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/faultEntry" }
+        }
+      }
+    },
+    "faultEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entryType"],
+      "properties": {
+        "entryType": {
+          "type": "string",
+          "enum": [
+            "isolatedFault",
+            "isolatedFaultAlts",
+            "detectedFault",
+            "detectedFaultAlts",
+            "observedFault",
+            "observedFaultAlts",
+            "correlatedFault",
+            "correlatedFaultAlts"
+          ]
+        },
+        "id": { "type": "string" },
+        "faultCode": { "type": "string", "minLength": 1 },
+        "faultDescr": { "$ref": "#/$defs/faultDescr" },
+        "detectionInfo": { "$ref": "#/$defs/detectionInfo" },
+        "locateAndRepair": { "$ref": "#/$defs/locateAndRepair" },
+        "remarks": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "entryType": { "const": "isolatedFault" } },
+            "required": ["entryType"]
+          },
+          "then": {
+            "required": ["id", "faultCode", "faultDescr", "locateAndRepair"]
+          }
+        }
+      ]
+    },
+    "faultDescr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["descr"],
+      "properties": {
+        "descr": { "type": "string", "minLength": 1 },
+        "detailedFaultDescr": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "viewLocation": { "type": "string" },
+            "systemLocation": { "type": "string" },
+            "systemName": { "type": "string" },
+            "faultySubSystem": { "type": "string" },
+            "systemIdent": { "type": "string" },
+            "systemPosition": { "type": "string" },
+            "faultEquip": { "type": "string" },
+            "faultMessageIndication": { "type": "string" },
+            "faultMessageBody": { "type": "string" },
+            "faultCond": { "type": "string" }
+          }
+        }
+      }
+    },
+    "detectionInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detectedLruItem"],
+      "properties": {
+        "detectionType": { "type": "string" },
+        "detectedLruItem": { "$ref": "#/$defs/detectedLruItem" }
+      }
+    },
+    "detectedLruItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lrus"],
+      "properties": {
+        "faultProbability": {
+          "type": ["string", "number"]
+        },
+        "lrus": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/lru" }
+        },
+        "remarks": { "type": ["string", "null"] },
+        "detectedSruItem": { "$ref": "#/$defs/detectedSruItem" }
+      }
+    },
+    "detectedSruItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["srus"],
+      "properties": {
+        "faultProbability": {
+          "type": ["string", "number"]
+        },
+        "srus": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sru" }
+        },
+        "remarks": { "type": ["string", "null"] }
+      }
+    },
+    "locateAndRepair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locateAndRepairLruItem"],
+      "properties": {
+        "locateAndRepairLruItem": { "$ref": "#/$defs/locateAndRepairLruItem" }
+      }
+    },
+    "locateAndRepairLruItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lrus"],
+      "properties": {
+        "faultProbability": {
+          "type": ["string", "number"]
+        },
+        "lrus": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/lru" }
+        },
+        "repair": { "$ref": "#/$defs/repair" },
+        "remarks": { "type": ["string", "null"] },
+        "locateAndRepairSruItem": { "$ref": "#/$defs/locateAndRepairSruItem" }
+      }
+    },
+    "locateAndRepairSruItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["srus"],
+      "properties": {
+        "faultProbability": {
+          "type": ["string", "number"]
+        },
+        "srus": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sru" }
+        },
+        "repair": { "$ref": "#/$defs/repair" },
+        "remarks": { "type": ["string", "null"] }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refs"],
+      "properties": {
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+    "lru": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "identNumber": { "type": "string" },
+        "partRef": { "$ref": "#/$defs/ref" },
+        "functionalItemRef": { "$ref": "#/$defs/functionalItemRef" }
+      }
+    },
+    "sru": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "identNumber": { "type": "string" },
+        "partRef": { "$ref": "#/$defs/ref" },
+        "functionalItemRef": { "$ref": "#/$defs/functionalItemRef" }
+      }
+    },
+    "functionalItemRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["functionalItemNumber"],
+      "properties": {
+        "functionalItemNumber": { "type": "string", "minLength": 1 },
+        "functionalItemType": { "type": "string" }
+      }
+    },
+    "faultIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commonInfo": { "$ref": "#/$defs/commonInfo" },
+        "preliminaryRqmts": { "$ref": "#/$defs/preliminaryRqmts" },
+        "closeRqmts": { "$ref": "#/$defs/closeRqmts" },
+        "faultIsolationSteps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/isolationStep" }
+        }
+      }
+    },
+    "closeRqmts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Close-up requirements performed after fault repair, mirroring preliminaryRqmts per S1000D.",
+      "properties": {
+        "reqCondGroup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conditions"],
+          "properties": {
+            "conditions": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/typedText" }
+            }
+          }
+        },
+        "reqSupportEquips": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSupplies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSpares": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/itemRequirement" }
+        },
+        "reqSafety": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["warnings", "cautions", "notes"],
+          "properties": {
+            "warnings": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            },
+            "cautions": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            },
+            "notes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/noteLike" }
+            }
+          }
+        }
+      }
+    },
+    "isolationStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepNumber", "instruction"],
+      "properties": {
+        "stepNumber": { "type": "integer", "minimum": 1 },
+        "instruction": { "type": "string", "minLength": 1 },
+        "question": {
+          "type": "string",
+          "description": "Yes/No question posed to the technician (maps to S1000D isolationStepQuestion)."
+        },
+        "yesGroup": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Branch taken when the technician answers YES to the question.",
+          "properties": {
+            "nextSteps": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/isolationStep" }
+            },
+            "result": { "$ref": "#/$defs/isolationResult" }
+          }
+        },
+        "noGroup": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Branch taken when the technician answers NO to the question.",
+          "properties": {
+            "nextSteps": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/isolationStep" }
+            },
+            "result": { "$ref": "#/$defs/isolationResult" }
+          }
+        },
+        "decision": { "type": "string" },
+        "sourceChunkId": { "type": "string" },
+        "refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+    "isolationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Terminal result of a fault-isolation decision branch.",
+      "properties": {
+        "faultConfirmed": { "type": "boolean" },
+        "faultyItem": { "$ref": "#/$defs/lru" },
+        "repairAction": {
+          "type": "string",
+          "description": "Human-readable description of the corrective action."
+        },
+        "repairRef": { "$ref": "#/$defs/ref" }
+      }
+    },
+    "validationResults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "not_run"]
+        },
+        "completeness": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "not_run"]
+        },
+        "xsdAlignment": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "not_run"]
+        },
+        "businessRules": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "not_run"]
+        },
+        "semanticConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}
