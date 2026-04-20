@@ -20,7 +20,6 @@ from fault_mapper.domain.procedural_ports import (
 )
 from fault_mapper.domain.procedural_value_objects import StepInterpretation
 from fault_mapper.domain.value_objects import FieldOrigin
-
 from fault_mapper.application._shared_helpers import section_key
 
 
@@ -143,6 +142,7 @@ class ProceduralStepExtractor:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS (pure, no port access)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 
 def _wire_sub_steps(

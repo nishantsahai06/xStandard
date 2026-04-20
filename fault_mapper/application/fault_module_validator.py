@@ -1,36 +1,30 @@
-"""Fault module validation service — orchestrates post-assembly validation.
+"""Fault module validation service — post-assembly orchestration.
 
-This service runs after the assembler produces a ``S1000DFaultDataModule``
-and before any persistence or serialisation step.  It composes:
+This service runs after the assembler produces a
+``S1000DFaultDataModule`` and before any persistence or serialisation
+step.  The 5-step lifecycle (structural → business → aggregate →
+gate → apply) lives in :class:`ModuleValidatorBase`.  This module
+only contributes the *apply-decision* hook and the fault-specific
+mapping from ``ModuleValidationResult`` to
+``ValidationResults``.
 
-  1. **Structural validation** — canonical model invariants.
-  2. **Business-rule validation** — domain-specific deterministic checks.
-  3. **Review gating** — decides ``ValidationStatus`` and ``ReviewStatus``
-     based on validation results and mapping trace.
-
-The service itself contains NO validation logic — it delegates to
-injected validator and review-gate callables.  This keeps it open for
-extension (e.g. XSD validation in a future chunk) without modification.
-
-Design notes:
-  • Validators are plain callables (duck-typed), not ports.  They are
-    deterministic, stateless, and have no external I/O — so the port
-    abstraction adds ceremony without value.
-  • The review gate IS a callable because its policy may vary by
-    deployment, but it remains deterministic and pure.
-  • The service mutates the module in-place (validation_status,
-    review_status, validation_results) because the module is a mutable
-    dataclass and validation is a lifecycle transition, not a new object.
+Design notes
+────────────
+• Validators are plain callables (duck-typed), not ports.  They are
+  deterministic, stateless, and have no external I/O — so a port
+  abstraction adds ceremony without value.
+• The service mutates the module in-place because the module is a
+  mutable dataclass and validation is a lifecycle transition, not a
+  new object.
 """
 
 from __future__ import annotations
 
-from typing import Callable
-
-from fault_mapper.domain.enums import (
-    ValidationOutcome,
-    ValidationStatus,
+from fault_mapper.application._module_validator_base import (
+    ModuleValidatorBase,
+    compute_validation_result,  # re-exported for backward compat
 )
+from fault_mapper.domain.enums import ValidationOutcome
 from fault_mapper.domain.models import (
     S1000DFaultDataModule,
     ValidationResults,
@@ -41,95 +35,59 @@ from fault_mapper.domain.value_objects import (
     ValidationIssue,
 )
 
-from fault_mapper.application._validation_helpers import (
-    compute_validation_result,
+
+# Type aliases retained for backward-compat with existing imports.
+StructuralValidatorFn = (
+    "Callable[[S1000DFaultDataModule], list[ValidationIssue]]"
+)
+BusinessValidatorFn = (
+    "Callable[[S1000DFaultDataModule], list[ValidationIssue]]"
+)
+ReviewGateFn = (
+    "Callable[[S1000DFaultDataModule, ModuleValidationResult], "
+    "ReviewDecision]"
 )
 
 
-# Type aliases for injected validators / gate
-StructuralValidatorFn = Callable[
-    [S1000DFaultDataModule], list[ValidationIssue]
-]
-BusinessValidatorFn = Callable[
-    [S1000DFaultDataModule], list[ValidationIssue]
-]
-ReviewGateFn = Callable[
-    [S1000DFaultDataModule, ModuleValidationResult], ReviewDecision
-]
+class FaultModuleValidator(ModuleValidatorBase[S1000DFaultDataModule]):
+    """Fault-specific module validator.
 
+    Inherits the 5-step validation lifecycle from
+    :class:`ModuleValidatorBase` and contributes only the
+    fault-specific write-back step:
 
-class FaultModuleValidator:
-    """Orchestrates validation and review gating for a mapped module.
-
-    Constructor-injected dependencies:
-      ``structural_validator`` — returns structural issues.
-      ``business_validator``   — returns business-rule issues.
-      ``review_gate``          — decides review/validation status.
-
-    All three are plain callables, not ports.
+      * ``validation_status`` ← ``decision.validation_status``
+      * ``review_status``     ← ``decision.review_status``
+      * ``validation_results`` ← derived from issues + decision
     """
 
-    def __init__(
-        self,
-        structural_validator: StructuralValidatorFn,
-        business_validator: BusinessValidatorFn,
-        review_gate: ReviewGateFn,
-    ) -> None:
-        self._structural = structural_validator
-        self._business = business_validator
-        self._gate = review_gate
-
-    def validate(
+    def _apply_decision(
         self,
         module: S1000DFaultDataModule,
-    ) -> ModuleValidationResult:
-        """Run all validation checks and apply review gating.
-
-        Steps
-        -----
-        1. Run structural validation → list of issues.
-        2. Run business-rule validation → list of issues.
-        3. Compute aggregate ``ModuleValidationResult``.
-        4. Run review gate → ``ReviewDecision``.
-        5. Mutate module: update ``validation_status``,
-           ``review_status``, ``validation_results``.
-
-        Returns
-        -------
-        ModuleValidationResult
-            The full validation result (also reflected on the module).
-        """
-        # Step 1 + 2: run validators
-        structural_issues = self._structural(module)
-        business_issues = self._business(module)
-
-        # Step 3: compute aggregate status
-        validation_result = compute_validation_result(
-            structural_issues, business_issues,
-        )
-
-        # Step 4: review gate
-        decision = self._gate(module, validation_result)
-
-        # Step 5: apply to module
+        result: ModuleValidationResult,
+        decision: ReviewDecision,
+    ) -> None:
         module.validation_status = decision.validation_status
         module.review_status = decision.review_status
-        module.validation_results = _build_validation_results(
-            validation_result,
-        )
-
-        return validation_result
+        module.validation_results = _build_validation_results(result)
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  MODULE-LEVEL HELPERS  (pure)
+#  Backward-compat alias — existing tests import _compute_result.
+# ═══════════════════════════════════════════════════════════════════════
+
+_compute_result = compute_validation_result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  MODULE-LEVEL HELPERS  (pure, fault-specific)
 # ═══════════════════════════════════════════════════════════════════════
 
 
 def _build_validation_results(
     result: ModuleValidationResult,
 ) -> ValidationResults:
-    """Map ``ModuleValidationResult`` into the model's ``ValidationResults``."""
+    """Map ``ModuleValidationResult`` into the fault model's ``ValidationResults``."""
     structural_ok = not any(i.is_error for i in result.structural_issues)
     business_ok = not any(i.is_error for i in result.business_issues)
 

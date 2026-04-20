@@ -34,7 +34,6 @@ from fault_mapper.domain.procedural_models import (
 )
 from fault_mapper.domain.value_objects import FieldOrigin
 
-from fault_mapper.application._shared_helpers import section_key
 from fault_mapper.application.procedural_document_classifier import (
     ProceduralDocumentClassifier,
 )
@@ -56,6 +55,7 @@ from fault_mapper.application.procedural_reference_extractor import (
 from fault_mapper.application.procedural_module_assembler import (
     ProceduralModuleAssembler,
 )
+from fault_mapper.application._shared_helpers import section_key
 
 
 class ProceduralMappingUseCase:
@@ -208,3 +208,7 @@ class ProceduralMappingUseCase:
             populated.append(new_section)
 
         return populated
+
+
+# ── Module-level helpers ─────────────────────────────────────────────
+

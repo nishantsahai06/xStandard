@@ -67,6 +67,7 @@ from fault_mapper.application.async_procedural_batch_processing_service import (
 from fault_mapper.application.async_procedural_module_persistence_service import (
     AsyncProceduralModulePersistenceService,
 )
+from fault_mapper.infrastructure._instrumentation import wrap_with_metrics
 
 
 class ProceduralMapperFactory:
@@ -212,15 +213,10 @@ class ProceduralMapperFactory:
             use_case=use_case, persistence=persistence,
         )
 
-        if metrics_sink is not None:
-            from fault_mapper.adapters.secondary.procedural_instrumented_services import (
-                InstrumentedProceduralBatchProcessingService,
-            )
-            return InstrumentedProceduralBatchProcessingService(
-                inner=inner, metrics=metrics_sink,
-            )
-
-        return inner
+        from fault_mapper.adapters.secondary.procedural_instrumented_services import (
+            InstrumentedProceduralBatchProcessingService,
+        )
+        return wrap_with_metrics(inner, metrics_sink, InstrumentedProceduralBatchProcessingService)
 
     def create_async_persistence_service(
         self,
@@ -257,12 +253,7 @@ class ProceduralMapperFactory:
             max_concurrency=max_concurrency,
         )
 
-        if metrics_sink is not None:
-            from fault_mapper.adapters.secondary.procedural_instrumented_services import (
-                AsyncInstrumentedProceduralBatchProcessingService,
-            )
-            return AsyncInstrumentedProceduralBatchProcessingService(
-                inner=inner, metrics=metrics_sink,
-            )
-
-        return inner
+        from fault_mapper.adapters.secondary.procedural_instrumented_services import (
+            AsyncInstrumentedProceduralBatchProcessingService,
+        )
+        return wrap_with_metrics(inner, metrics_sink, AsyncInstrumentedProceduralBatchProcessingService)

@@ -28,6 +28,15 @@ def section_key(section: Section) -> str:
 _MAX_COMMON_INFO_PARAGRAPHS = 20
 
 
+def section_key(section: Section) -> str:
+    """Stable key for a section (prefers ``id``, falls back to order).
+
+    Shared across fault and procedural pipelines to ensure identical
+    keying semantics when tracking per-section ``FieldOrigin`` provenance.
+    """
+    return section.id or f"section_{section.section_order}"
+
+
 def build_common_info(sections: list[Section]) -> CommonInfo | None:
     """DIRECT: build ``CommonInfo`` from chunk text across sections.
 

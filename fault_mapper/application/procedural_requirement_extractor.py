@@ -21,7 +21,6 @@ from fault_mapper.domain.procedural_value_objects import (
     RequirementInterpretation,
 )
 from fault_mapper.domain.value_objects import FieldOrigin
-
 from fault_mapper.application._shared_helpers import section_key
 
 
@@ -162,6 +161,7 @@ class ProceduralRequirementExtractor:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 
 def _infer_requirement_type(headers_lower: list[str]) -> str:

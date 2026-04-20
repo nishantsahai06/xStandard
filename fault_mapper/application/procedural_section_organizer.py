@@ -20,7 +20,6 @@ from fault_mapper.domain.procedural_ports import (
     ProceduralRulesEnginePort,
 )
 from fault_mapper.domain.value_objects import FieldOrigin
-
 from fault_mapper.application._shared_helpers import section_key
 
 
@@ -128,4 +127,7 @@ class ProceduralSectionOrganizer:
             confidence=0.5,
             source_chunk_id=section.id,
         )
+
+
+# ── Module-level helpers ─────────────────────────────────────────────
 

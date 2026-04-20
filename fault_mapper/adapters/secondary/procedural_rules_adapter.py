@@ -18,8 +18,6 @@ D. Threshold / configuration lookup     (1 method)
 from __future__ import annotations
 
 import re
-import uuid
-from datetime import datetime, timezone
 
 from fault_mapper.domain.models import DocumentPipelineOutput, Section
 from fault_mapper.domain.procedural_enums import (
@@ -33,13 +31,16 @@ from fault_mapper.domain.value_objects import (
     IssueInfo,
     Language,
 )
+from fault_mapper.adapters.secondary._rules_shared import (
+    collapse_whitespace as _collapse_whitespace,
+    issue_info_from,
+    language_from,
+    make_record_id,
+    safe_get as _safe_get,
+    today_issue_date,
+)
 from fault_mapper.infrastructure.procedural_config import (
     ProceduralMappingConfig,
-)
-
-from fault_mapper.adapters.secondary._adapter_helpers import (
-    collapse_whitespace as _collapse_whitespace,
-    safe_get as _safe_get,
 )
 
 
@@ -93,7 +94,7 @@ class ProceduralRulesAdapter:
 
     def generate_record_id(self) -> str:
         """Generate a unique record identifier (UUID v4)."""
-        return str(uuid.uuid4())
+        return make_record_id()
 
     def build_dm_code(
         self,
@@ -152,19 +153,14 @@ class ProceduralRulesAdapter:
 
     def resolve_issue_info(self) -> IssueInfo:
         """Return the configured issue number and in-work indicator."""
-        return IssueInfo(
-            issue_number=self._cfg.default_issue_number,
-            in_work=self._cfg.default_in_work,
+        return issue_info_from(
+            self._cfg.default_issue_number,
+            self._cfg.default_in_work,
         )
 
     def resolve_issue_date(self) -> IssueDate:
         """Return today's date formatted per S1000D convention."""
-        today = datetime.now(timezone.utc).date()
-        return IssueDate(
-            year=f"{today.year:04d}",
-            month=f"{today.month:02d}",
-            day=f"{today.day:02d}",
-        )
+        return today_issue_date()
 
     def normalize_title(
         self,
@@ -204,9 +200,9 @@ class ProceduralRulesAdapter:
 
     def default_language(self) -> Language:
         """Return the default language for DM header construction."""
-        return Language(
-            language_iso_code=self._cfg.default_language_iso,
-            country_iso_code=self._cfg.default_country_iso,
+        return language_from(
+            self._cfg.default_language_iso,
+            self._cfg.default_country_iso,
         )
 
     # ══════════════════════════════════════════════════════════════

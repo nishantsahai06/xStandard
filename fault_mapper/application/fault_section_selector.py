@@ -18,6 +18,7 @@ from fault_mapper.domain.enums import MappingStrategy
 from fault_mapper.domain.models import DocumentPipelineOutput, Section
 from fault_mapper.domain.ports import LlmInterpreterPort, RulesEnginePort
 from fault_mapper.domain.value_objects import FieldOrigin
+from fault_mapper.application._shared_helpers import section_key
 
 from fault_mapper.application._shared_helpers import section_key
 
