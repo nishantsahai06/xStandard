@@ -1,0 +1,765 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lexx-technologies/schemas/csdb/procedural-data-module.schema.json",
+  "title": "LexX Canonical Procedural Data Module",
+  "description": "Canonical JSON schema for storing a procedural data module in the CSDB after mapping from DocumentPipelineOutput / UnifiedDocument.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "moduleType",
+    "source",
+    "identAndStatusSection",
+    "content",
+    "validation",
+    "lineage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "moduleType": {
+      "type": "string",
+      "const": "procedural"
+    },
+    "csdbRecordId": {
+      "type": "string",
+      "description": "Internal CSDB record identifier. Can be assigned before MongoDB insert or mirrored from _id."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipelineDocumentId",
+        "fileName",
+        "fileType",
+        "sourcePath",
+        "metadata"
+      ],
+      "properties": {
+        "pipelineDocumentId": {
+          "type": "string",
+          "pattern": "^doc_[A-Za-z0-9\\-_:]+$"
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fileType": {
+          "type": "string",
+          "enum": ["pdf", "docx", "pptx", "xlsx", "csv", "txt", "xml", "sgml", "unknown"]
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "uploadedBy",
+            "uploadedAt",
+            "pipelineVersion"
+          ],
+          "properties": {
+            "uploadedBy": {
+              "type": ["string", "null"]
+            },
+            "uploadedAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            },
+            "extractedAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            },
+            "pipelineVersion": {
+              "type": "string"
+            },
+            "fileSizeBytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "pageCount": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "tags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            }
+          }
+        }
+      }
+    },
+    "identAndStatusSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dmCode",
+        "language",
+        "issueInfo",
+        "issueDate",
+        "dmTitle",
+        "securityClassification",
+        "responsiblePartnerCompany",
+        "origin"
+      ],
+      "properties": {
+        "dmCode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "modelIdentCode",
+            "systemDiffCode",
+            "systemCode",
+            "subSystemCode",
+            "subSubSystemCode",
+            "assyCode",
+            "disassyCode",
+            "disassyCodeVariant",
+            "infoCode",
+            "infoCodeVariant",
+            "itemLocationCode",
+            "learnCode",
+            "learnEventCode"
+          ],
+          "properties": {
+            "modelIdentCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "systemDiffCode": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,4}$"
+            },
+            "systemCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{1,4}$"
+            },
+            "subSystemCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{1,4}$"
+            },
+            "subSubSystemCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{0,4}$"
+            },
+            "assyCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{1,4}$"
+            },
+            "disassyCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{1,4}$"
+            },
+            "disassyCodeVariant": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{0,4}$"
+            },
+            "infoCode": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{1,5}$"
+            },
+            "infoCodeVariant": {
+              "type": "string",
+              "pattern": "^[0-9A-Z]{0,4}$"
+            },
+            "itemLocationCode": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,4}$"
+            },
+            "learnCode": {
+              "type": ["string", "null"],
+              "pattern": "^[A-Z0-9]{0,4}$"
+            },
+            "learnEventCode": {
+              "type": ["string", "null"],
+              "pattern": "^[A-Z0-9]{0,4}$"
+            },
+            "dmCodeString": {
+              "type": "string",
+              "description": "Flattened / concatenated display key for search and indexing."
+            }
+          }
+        },
+        "language": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "languageIsoCode",
+            "countryIsoCode"
+          ],
+          "properties": {
+            "languageIsoCode": {
+              "type": "string",
+              "pattern": "^[a-z]{2}$"
+            },
+            "countryIsoCode": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          }
+        },
+        "issueInfo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["issueNumber", "inWork"],
+          "properties": {
+            "issueNumber": {
+              "type": "string",
+              "pattern": "^[0-9]{3}$"
+            },
+            "inWork": {
+              "type": "string",
+              "pattern": "^[0-9]{2}$"
+            }
+          }
+        },
+        "issueDate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["year", "month", "day"],
+          "properties": {
+            "year": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            },
+            "month": {
+              "type": "string",
+              "pattern": "^(0[1-9]|1[0-2])$"
+            },
+            "day": {
+              "type": "string",
+              "pattern": "^(0[1-9]|[12][0-9]|3[01])$"
+            }
+          }
+        },
+        "dmTitle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["techName", "infoName"],
+          "properties": {
+            "techName": {
+              "type": "string",
+              "minLength": 1
+            },
+            "infoName": {
+              "type": "string",
+              "minLength": 1
+            },
+            "infoNameVariant": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "securityClassification": {
+          "type": "string",
+          "enum": [
+            "01-unclassified",
+            "02-restricted",
+            "03-confidential",
+            "04-secret",
+            "05-top-secret"
+          ]
+        },
+        "responsiblePartnerCompany": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enterpriseCode", "enterpriseName"],
+          "properties": {
+            "enterpriseCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "enterpriseName": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["isExtracted", "isHumanReviewed"],
+          "properties": {
+            "isExtracted": {
+              "type": "boolean"
+            },
+            "isHumanReviewed": {
+              "type": "boolean"
+            },
+            "reviewedBy": {
+              "type": ["string", "null"]
+            },
+            "reviewedAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          }
+        },
+        "sns": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "systemCode": { "type": ["string", "null"] },
+            "subSystemCode": { "type": ["string", "null"] },
+            "subSubSystemCode": { "type": ["string", "null"] },
+            "assyCode": { "type": ["string", "null"] },
+            "functionalItemCode": { "type": ["string", "null"] },
+            "snsString": { "type": ["string", "null"] }
+          }
+        },
+        "brex": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "brexDmRef": { "type": ["string", "null"] },
+            "complianceProfile": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sections"],
+      "properties": {
+        "preliminaryRequirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requirementItem" },
+          "default": []
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "cautions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contentSection" }
+        }
+      }
+    },
+    "searchProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fullText": {
+          "type": "string",
+          "default": ""
+        },
+        "sectionTitles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "chunkTexts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "figureLabels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "tableCaptions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "schematicComponentNames": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaValid",
+        "businessRuleValid",
+        "status"
+      ],
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "businessRuleValid": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "validated",
+            "quarantined",
+            "rejected",
+            "approved"
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationIssue" },
+          "default": []
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationIssue" },
+          "default": []
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mappedBy",
+        "mappedAt",
+        "mappingRulesetVersion",
+        "sourceSections"
+      ],
+      "properties": {
+        "mappedBy": {
+          "type": "string"
+        },
+        "mappedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "mappingRulesetVersion": {
+          "type": "string"
+        },
+        "mappingMethod": {
+          "type": "string",
+          "enum": ["rules-only", "hybrid-ml-rules", "hybrid-llm-rules"]
+        },
+        "sourceSections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceSectionRef" },
+          "default": []
+        },
+        "confidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "documentClassification": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "dmCodeInference": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sectionTyping": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "stepSegmentation": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "textNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string", "minLength": 1 },
+        "sourceChunkIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "requirementItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "text"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["tool", "consumable", "spare", "personnel", "reference", "precondition", "other"]
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "quantity": { "type": ["number", "null"] },
+        "unit": { "type": ["string", "null"] },
+        "sourceChunkIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "contentSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sectionId",
+        "title",
+        "sectionOrder",
+        "sectionType",
+        "pageNumbers",
+        "steps"
+      ],
+      "properties": {
+        "sectionId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sectionOrder": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sectionType": {
+          "type": "string",
+          "enum": [
+            "preliminary",
+            "mainProcedure",
+            "postProcedure",
+            "closeUp",
+            "inspection",
+            "faultIsolation",
+            "description",
+            "other"
+          ]
+        },
+        "level": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "pageNumbers": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1
+        },
+        "rawSectionText": {
+          "type": ["string", "null"]
+        },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/proceduralStep" },
+          "default": []
+        },
+        "subSections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contentSection" },
+          "default": []
+        },
+        "figures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/figureAsset" },
+          "default": []
+        },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableAsset" },
+          "default": []
+        },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/referenceItem" },
+          "default": []
+        }
+      }
+    },
+    "proceduralStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepId",
+        "stepNumber",
+        "text"
+      ],
+      "properties": {
+        "stepId": {
+          "type": "string"
+        },
+        "stepNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionType": {
+          "type": ["string", "null"],
+          "enum": [
+            "remove",
+            "install",
+            "inspect",
+            "test",
+            "adjust",
+            "clean",
+            "disconnect",
+            "connect",
+            "measure",
+            "verify",
+            "other",
+            null
+          ]
+        },
+        "sourceChunkIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "cautions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textNotice" },
+          "default": []
+        },
+        "expectedResult": {
+          "type": ["string", "null"]
+        },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/referenceItem" },
+          "default": []
+        }
+      }
+    },
+    "figureAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "figureId",
+        "pageNumber"
+      ],
+      "properties": {
+        "figureId": { "type": "string" },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "figureLabel": { "type": ["string", "null"] },
+        "caption": { "type": ["string", "null"] },
+        "objectStorageUri": { "type": ["string", "null"] },
+        "isometric": { "type": ["boolean", "null"] },
+        "summaries": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "tableAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tableId",
+        "pageNumber"
+      ],
+      "properties": {
+        "tableId": { "type": "string" },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "caption": { "type": ["string", "null"] },
+        "headers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": ["string", "number", "boolean", "null"] }
+          },
+          "default": []
+        },
+        "markdownSummary": { "type": ["string", "null"] }
+      }
+    },
+    "referenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["internalDmRef", "externalDocRef", "figureRef", "tableRef", "other"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "validationIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "severity"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"]
+        },
+        "path": { "type": ["string", "null"] }
+      }
+    },
+    "sourceSectionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sectionId"],
+      "properties": {
+        "sectionId": { "type": "string" },
+        "chunkIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "pageNumbers": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "default": []
+        }
+      }
+    }
+  }
+}

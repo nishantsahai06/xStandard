@@ -57,6 +57,30 @@ class ActionType(str, Enum):
 
 
 @unique
+class SecurityClassification(str, Enum):
+    """S1000D security classification level.
+
+    WHY THIS IS A DOMAIN CONCEPT:
+      1. Security classification is a mandatory S1000D data-module
+         identity attribute — every DM must carry one.
+      2. It drives access control, distribution, and handling
+         requirements in any S1000D-compliant CSDB.
+      3. The review gate and business rules need to evaluate it
+         as a first-class domain constraint, not as a serializer
+         string default.
+
+    The values match the S1000D Issue 5.0 security classification
+    enumeration.
+    """
+
+    UNCLASSIFIED = "01-unclassified"
+    RESTRICTED = "02-restricted"
+    CONFIDENTIAL = "03-confidential"
+    SECRET = "04-secret"
+    TOP_SECRET = "05-top-secret"
+
+
+@unique
 class ProceduralModuleType(str, Enum):
     """Discriminator for the procedural module flavour.
 

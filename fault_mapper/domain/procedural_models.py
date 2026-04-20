@@ -37,6 +37,7 @@ from fault_mapper.domain.procedural_enums import (
     ActionType,
     ProceduralModuleType,
     ProceduralSectionType,
+    SecurityClassification,
 )
 from fault_mapper.domain.value_objects import (
     DmCode,
@@ -45,6 +46,12 @@ from fault_mapper.domain.value_objects import (
     IssueInfo,
     Language,
     MappingTrace,
+)
+from fault_mapper.domain.procedural_value_objects import (
+    DataOrigin,
+    ProceduralConfidence,
+    ResponsiblePartnerCompany,
+    SourceSectionRef,
 )
 
 # Shared target building blocks — NOT fault-specific.
@@ -205,9 +212,11 @@ class ProceduralHeader:
     issue_info: IssueInfo
     issue_date: IssueDate
     dm_title: DmTitle
-    security_classification: str | None = None
-    responsible_partner_company: str | None = None
-    origin: str | None = None
+    security_classification: SecurityClassification = SecurityClassification.UNCLASSIFIED
+    responsible_partner_company: ResponsiblePartnerCompany = field(
+        default_factory=ResponsiblePartnerCompany,
+    )
+    origin: DataOrigin = field(default_factory=DataOrigin)
     sns: str | None = None
     brex: str | None = None
 
@@ -248,8 +257,10 @@ class ProceduralLineage:
     mapped_at: str = ""
     mapping_ruleset_version: str = ""
     mapping_method: str = ""
-    source_sections: list[str] = field(default_factory=list)
-    confidence: float = 0.0
+    source_sections: list[SourceSectionRef] = field(default_factory=list)
+    confidence: ProceduralConfidence = field(
+        default_factory=ProceduralConfidence,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════

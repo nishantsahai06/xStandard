@@ -1,0 +1,790 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lexx.example/schemas/s1000d/procedural-data-module.schema.json",
+  "title": "LexX Canonical S1000D Procedural Data Module",
+  "description": "Canonical JSON schema for a procedural data module mapped from xTract2 intermediate structures and aligned to S1000D procedural module semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recordId",
+    "recordType",
+    "schemaVersion",
+    "moduleType",
+    "source",
+    "identAndStatusSection",
+    "content"
+  ],
+  "properties": {
+    "recordId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "System-generated unique identifier for this procedural module record."
+    },
+    "recordType": {
+      "const": "S1000D_ProceduralDataModule"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this schema."
+    },
+    "moduleType": {
+      "type": "string",
+      "enum": [
+        "procedural",
+        "descriptive"
+      ],
+      "description": "Procedural module flavour."
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "identAndStatusSection": {
+      "$ref": "#/$defs/identAndStatusSection"
+    },
+    "content": {
+      "$ref": "#/$defs/content"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "lineage": {
+      "$ref": "#/$defs/lineage"
+    },
+    "mappingVersion": {
+      "type": "string"
+    },
+    "reviewStatus": {
+      "type": "string",
+      "enum": [
+        "not_reviewed",
+        "in_review",
+        "changes_requested",
+        "approved",
+        "rejected"
+      ]
+    },
+    "classification": {
+      "$ref": "#/$defs/classification"
+    },
+    "xmlMeta": {
+      "$ref": "#/$defs/xmlMeta"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceDocumentId",
+        "sourceSectionIds"
+      ],
+      "properties": {
+        "sourceDocumentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSectionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sourcePages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "sourceChunkIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceTableIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceImageIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "identAndStatusSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dmCode",
+        "language",
+        "issueInfo",
+        "issueDate",
+        "dmTitle"
+      ],
+      "properties": {
+        "dmCode": {
+          "$ref": "#/$defs/dmCode"
+        },
+        "language": {
+          "$ref": "#/$defs/language"
+        },
+        "issueInfo": {
+          "$ref": "#/$defs/issueInfo"
+        },
+        "issueDate": {
+          "$ref": "#/$defs/issueDate"
+        },
+        "dmTitle": {
+          "$ref": "#/$defs/dmTitle"
+        },
+        "securityClassification": {
+          "type": "string"
+        },
+        "responsiblePartnerCompany": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "sns": {
+          "type": "string"
+        },
+        "brex": {
+          "type": "string"
+        }
+      }
+    },
+    "dmCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modelIdentCode",
+        "systemDiffCode",
+        "systemCode",
+        "subSystemCode",
+        "subSubSystemCode",
+        "assyCode",
+        "disassyCode",
+        "disassyCodeVariant",
+        "infoCode",
+        "infoCodeVariant",
+        "itemLocationCode"
+      ],
+      "properties": {
+        "modelIdentCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{2,14}$"
+        },
+        "systemDiffCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,4}$"
+        },
+        "systemCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{2,3}$"
+        },
+        "subSystemCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,2}$"
+        },
+        "subSubSystemCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,2}$"
+        },
+        "assyCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{2,4}$"
+        },
+        "disassyCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{2}$"
+        },
+        "disassyCodeVariant": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,3}$"
+        },
+        "infoCode": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{3}$"
+        },
+        "infoCodeVariant": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1}$"
+        },
+        "itemLocationCode": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "T"
+          ]
+        },
+        "learnCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z0-9]{1,3}$"
+        },
+        "learnEventCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z0-9]{1,3}$"
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageIsoCode",
+        "countryIsoCode"
+      ],
+      "properties": {
+        "languageIsoCode": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}$"
+        },
+        "countryIsoCode": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      }
+    },
+    "issueInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issueNumber",
+        "inWork"
+      ],
+      "properties": {
+        "issueNumber": {
+          "type": "string",
+          "pattern": "^\\d{3}$"
+        },
+        "inWork": {
+          "type": "string",
+          "pattern": "^\\d{2}$"
+        }
+      }
+    },
+    "issueDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "month",
+        "day"
+      ],
+      "properties": {
+        "year": {
+          "type": "string",
+          "pattern": "^\\d{4}$"
+        },
+        "month": {
+          "type": "string",
+          "pattern": "^(0[1-9]|1[0-2])$"
+        },
+        "day": {
+          "type": "string",
+          "pattern": "^(0[1-9]|[12]\\d|3[01])$"
+        }
+      }
+    },
+    "dmTitle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "techName"
+      ],
+      "properties": {
+        "techName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "infoName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "infoNameVariant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sections"
+      ],
+      "properties": {
+        "preliminaryRequirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirementItem"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "cautions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralSection"
+          }
+        }
+      }
+    },
+    "requirementItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirementType"
+      ],
+      "properties": {
+        "requirementType": {
+          "type": "string",
+          "enum": [
+            "personnel",
+            "equipment",
+            "supply",
+            "spare",
+            "safety"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "identNumber": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "skillLevel": {
+          "type": "string"
+        },
+        "safetyText": {
+          "type": "string"
+        },
+        "sourceTableId": {
+          "type": "string"
+        }
+      }
+    },
+    "noteLike": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "text"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "caution",
+            "note",
+            "remark"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceChunkId": {
+          "type": "string"
+        }
+      }
+    },
+    "proceduralSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sectionOrder",
+        "sectionType"
+      ],
+      "properties": {
+        "sectionId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sectionOrder": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sectionType": {
+          "type": "string",
+          "enum": [
+            "setup",
+            "procedure",
+            "inspection",
+            "test",
+            "removal",
+            "installation",
+            "servicing",
+            "cleaning",
+            "adjustment",
+            "general"
+          ]
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pageNumbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "rawSectionText": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralStep"
+          }
+        },
+        "subSections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralSection"
+          }
+        },
+        "figures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/figureRef"
+          }
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tableRef"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralReference"
+          }
+        },
+        "sourceSectionId": {
+          "type": "string"
+        }
+      }
+    },
+    "proceduralStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepNumber",
+        "text"
+      ],
+      "properties": {
+        "stepId": {
+          "type": "string"
+        },
+        "stepNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "remove",
+            "install",
+            "inspect",
+            "test",
+            "adjust",
+            "service",
+            "clean",
+            "lubricate",
+            "replace",
+            "torque",
+            "connect",
+            "disconnect",
+            "general"
+          ]
+        },
+        "sourceChunkIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "cautions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/noteLike"
+          }
+        },
+        "expectedResult": {
+          "type": "string"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralReference"
+          }
+        },
+        "subSteps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proceduralStep"
+          }
+        }
+      }
+    },
+    "proceduralReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "refType"
+      ],
+      "properties": {
+        "refType": {
+          "type": "string",
+          "enum": [
+            "dm_ref",
+            "figure_ref",
+            "table_ref",
+            "external"
+          ]
+        },
+        "targetDmCode": {
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "figureRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "figureId": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        }
+      }
+    },
+    "tableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tableId": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        },
+        "sourceTableId": {
+          "type": "string"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaValid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "businessRuleValid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "schema_failed",
+            "completeness_failed",
+            "business_rule_failed",
+            "review_required",
+            "approved",
+            "rejected",
+            "stored"
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mappedBy",
+        "mappedAt",
+        "mappingRulesetVersion",
+        "mappingMethod"
+      ],
+      "properties": {
+        "mappedBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mappedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mappingRulesetVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mappingMethod": {
+          "type": "string",
+          "enum": [
+            "rules",
+            "llm",
+            "llm+rules",
+            "manual"
+          ]
+        },
+        "sourceSections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "confidence",
+        "method"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "const": "S1000D"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "rules",
+            "llm",
+            "ml",
+            "llm+rules",
+            "ml+rules",
+            "manual"
+          ]
+        }
+      }
+    },
+    "xmlMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "schemaSource": {
+          "type": "string"
+        },
+        "serializationTarget": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

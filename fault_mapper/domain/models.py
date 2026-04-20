@@ -602,6 +602,10 @@ class Provenance:
     source_table_ids: list[str] = field(default_factory=list)
     source_image_ids: list[str] = field(default_factory=list)
     source_schematic_refs: list[str] = field(default_factory=list)
+    # Chunk 5: source file metadata — optional to avoid breaking fault pipeline
+    file_name: str | None = None
+    file_type: str | None = None
+    source_path: str | None = None
 
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -22,6 +22,84 @@ from fault_mapper.domain.procedural_enums import (
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  NEW — DOMAIN-ENRICHMENT VOs  (Chunk 5)
+#
+#  Each VO below passed the 3-question justification test:
+#    1. Real procedural / S1000D business concept
+#    2. Belongs in the inner hexagon (domain)
+#    3. Should not remain only in the serializer
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class ResponsiblePartnerCompany:
+    """S1000D responsible partner company identity.
+
+    WHY DOMAIN: S1000D mandates both an enterprise code and display
+    name for the responsible partner.  Storing a single string forced
+    the serializer to fabricate the {enterpriseCode, enterpriseName}
+    object — that's domain knowledge leaking into the adapter.
+    """
+
+    enterprise_code: str = "UNKNOWN"
+    enterprise_name: str = "Unknown"
+
+
+@dataclass(frozen=True)
+class DataOrigin:
+    """How this data module was produced — extraction provenance.
+
+    WHY DOMAIN: Whether data was extracted vs. manually authored, and
+    whether a human has reviewed it, are lifecycle facts the review
+    gate and business rules need.  The serializer was fabricating
+    ``{isExtracted: True, isHumanReviewed: ...}`` from review_status
+    — that's a domain concern disguised as adapter logic.
+    """
+
+    is_extracted: bool = True
+    is_human_reviewed: bool = False
+
+
+@dataclass(frozen=True)
+class ProceduralConfidence:
+    """Multi-dimensional confidence for procedural mapping lineage.
+
+    WHY DOMAIN: A single ``float`` confidence conflates four genuinely
+    different quality signals.  The review gate should be able to flag
+    a module whose step-segmentation confidence is low even when
+    document-classification confidence is high.
+    """
+
+    document_classification: float = 0.0
+    dm_code_inference: float = 0.0
+    section_typing: float = 0.0
+    step_segmentation: float = 0.0
+
+    @property
+    def average(self) -> float:
+        vals = [
+            self.document_classification,
+            self.dm_code_inference,
+            self.section_typing,
+            self.step_segmentation,
+        ]
+        return sum(vals) / len(vals)
+
+
+@dataclass(frozen=True)
+class SourceSectionRef:
+    """Structured reference back to a source section in lineage.
+
+    WHY DOMAIN: ``list[str]`` source_sections lost the page-number
+    linkage.  A structured ref lets lineage consumers trace back to
+    exact source locations — a real provenance concept.
+    """
+
+    section_id: str
+    page_numbers: tuple[int, ...] = ()
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  A.  LLM INTERPRETATION RESULTS
 # ═══════════════════════════════════════════════════════════════════════
 

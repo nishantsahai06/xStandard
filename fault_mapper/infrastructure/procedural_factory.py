@@ -2,7 +2,7 @@
 
 Mirrors ``FaultMapperFactory`` structurally.  Wires the complete
 procedural object graph and returns a ready-to-use
-``ProceduralMappingUseCase``.
+``ProceduralMappingUseCase`` and ``ProceduralModuleValidator``.
 
 This is the ONLY module that knows about concrete adapter classes.
 Everything else depends only on domain ports (protocols).
@@ -21,8 +21,11 @@ from fault_mapper.infrastructure.procedural_config import (
     ProceduralAppConfig,
 )
 
-# ── Shared port for review policy (REUSED, not procedural-specific) ──
-from fault_mapper.domain.ports import MappingReviewPolicyPort
+# ── Shared ports (REUSED, not procedural-specific) ──
+from fault_mapper.domain.ports import (
+    FaultModuleRepositoryPort,
+    MappingReviewPolicyPort,
+)
 
 # ── Application-layer imports ────────────────────────────────────
 from fault_mapper.application.procedural_mapping_use_case import (
@@ -49,6 +52,21 @@ from fault_mapper.application.procedural_reference_extractor import (
 from fault_mapper.application.procedural_module_assembler import (
     ProceduralModuleAssembler,
 )
+from fault_mapper.application.procedural_module_validator import (
+    ProceduralModuleValidator,
+)
+from fault_mapper.application.procedural_module_persistence_service import (
+    ProceduralModulePersistenceService,
+)
+from fault_mapper.application.procedural_batch_processing_service import (
+    ProceduralBatchProcessingService,
+)
+from fault_mapper.application.async_procedural_batch_processing_service import (
+    AsyncProceduralBatchProcessingService,
+)
+from fault_mapper.application.async_procedural_module_persistence_service import (
+    AsyncProceduralModulePersistenceService,
+)
 
 
 class ProceduralMapperFactory:
@@ -67,6 +85,7 @@ class ProceduralMapperFactory:
         self,
         config: ProceduralAppConfig,
         llm_client: Any = None,
+        repository: FaultModuleRepositoryPort | None = None,
     ) -> None:
         if llm_client is None:
             raise ValueError(
@@ -76,6 +95,7 @@ class ProceduralMapperFactory:
             )
         self._config = config
         self._llm_client = llm_client
+        self._repository = repository
 
     def create_use_case(
         self,
@@ -129,3 +149,120 @@ class ProceduralMapperFactory:
             reference_extractor=refs,
             assembler=assembler,
         )
+
+    def create_validator(self) -> ProceduralModuleValidator:
+        """Wire and return a fully configured ProceduralModuleValidator.
+
+        Uses the concrete schema validator, business-rule validator,
+        and review gate from the adapters layer.
+
+        Returns
+        -------
+        ProceduralModuleValidator
+            Ready to call ``validator.validate(module)``.
+        """
+        from fault_mapper.adapters.secondary.procedural_schema_validator import (
+            validate_procedural_schema,
+        )
+        from fault_mapper.adapters.secondary.procedural_business_rule_validator import (
+            validate_procedural_business_rules,
+        )
+        from fault_mapper.adapters.secondary.procedural_review_gate import (
+            procedural_review_gate,
+        )
+
+        return ProceduralModuleValidator(
+            structural_validator=validate_procedural_schema,
+            business_validator=validate_procedural_business_rules,
+            review_gate=procedural_review_gate,
+        )
+
+    def create_persistence_service(self) -> ProceduralModulePersistenceService:
+        """Wire and return a fully configured ProceduralModulePersistenceService.
+
+        If no repository was provided at factory construction time,
+        defaults to ``InMemoryFaultModuleRepository`` (shared adapter).
+
+        Returns
+        -------
+        ProceduralModulePersistenceService
+            Ready to call ``service.persist(module)``.
+        """
+        repo = self._repository
+        if repo is None:
+            from fault_mapper.adapters.secondary.in_memory_repository import (
+                InMemoryFaultModuleRepository,
+            )
+            repo = InMemoryFaultModuleRepository()
+
+        return ProceduralModulePersistenceService(repository=repo)
+
+    def create_batch_processing_service(
+        self,
+        *,
+        metrics_sink: object | None = None,
+    ) -> ProceduralBatchProcessingService:
+        """Create a sync procedural batch processing service.
+
+        If ``metrics_sink`` is provided, wraps with instrumented wrapper.
+        """
+        use_case = self.create_use_case()
+        persistence = self.create_persistence_service()
+        inner = ProceduralBatchProcessingService(
+            use_case=use_case, persistence=persistence,
+        )
+
+        if metrics_sink is not None:
+            from fault_mapper.adapters.secondary.procedural_instrumented_services import (
+                InstrumentedProceduralBatchProcessingService,
+            )
+            return InstrumentedProceduralBatchProcessingService(
+                inner=inner, metrics=metrics_sink,
+            )
+
+        return inner
+
+    def create_async_persistence_service(
+        self,
+    ) -> AsyncProceduralModulePersistenceService:
+        """Create an async procedural persistence service."""
+        if self._repository is not None:
+            from fault_mapper.adapters.secondary.async_in_memory_repository import (
+                AsyncInMemoryFaultModuleRepository,
+            )
+            repo: object = AsyncInMemoryFaultModuleRepository()
+        else:
+            from fault_mapper.adapters.secondary.async_in_memory_repository import (
+                AsyncInMemoryFaultModuleRepository,
+            )
+            repo = AsyncInMemoryFaultModuleRepository()
+
+        return AsyncProceduralModulePersistenceService(repository=repo)
+
+    def create_async_batch_processing_service(
+        self,
+        *,
+        metrics_sink: object | None = None,
+        max_concurrency: int = 5,
+    ) -> AsyncProceduralBatchProcessingService:
+        """Create an async procedural batch processing service.
+
+        If ``metrics_sink`` is provided, wraps with instrumented wrapper.
+        """
+        use_case = self.create_use_case()
+        persistence = self.create_async_persistence_service()
+        inner = AsyncProceduralBatchProcessingService(
+            use_case=use_case,
+            persistence=persistence,
+            max_concurrency=max_concurrency,
+        )
+
+        if metrics_sink is not None:
+            from fault_mapper.adapters.secondary.procedural_instrumented_services import (
+                AsyncInstrumentedProceduralBatchProcessingService,
+            )
+            return AsyncInstrumentedProceduralBatchProcessingService(
+                inner=inner, metrics=metrics_sink,
+            )
+
+        return inner

@@ -57,7 +57,7 @@ class TestProceduralHeaderBuilder:
             source, ProceduralModuleType.PROCEDURAL,
         )
 
-        assert len(origins) == 5
+        assert len(origins) == 8
         for key, origin in origins.items():
             assert origin.strategy == MappingStrategy.RULE
             assert origin.confidence == 1.0

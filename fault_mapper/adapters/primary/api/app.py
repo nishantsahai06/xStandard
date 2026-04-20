@@ -34,11 +34,19 @@ from fault_mapper.adapters.primary.api.routes import (
     review_router,
     set_services,
 )
+from fault_mapper.adapters.primary.api.procedural_routes import (
+    procedural_router,
+    set_procedural_services,
+)
+from fault_mapper.adapters.primary.api.procedural_dependencies import (
+    ProceduralServiceProvider,
+)
 
 
 def create_app(
     services: Union[ServiceProvider, AsyncServiceProvider, None] = None,
     *,
+    procedural_services: ProceduralServiceProvider | None = None,
     title: str = "Fault Module Pipeline API",
     version: str = "0.1.0",
 ) -> FastAPI:
@@ -59,6 +67,9 @@ def create_app(
 
     set_services(services)
 
+    if procedural_services is not None:
+        set_procedural_services(procedural_services)
+
     application = FastAPI(title=title, version=version)
 
     # ── Register routers ─────────────────────────────────────────
@@ -66,6 +77,7 @@ def create_app(
     application.include_router(process_router)
     application.include_router(review_router)
     application.include_router(reconciliation_router)
+    application.include_router(procedural_router)
 
     # ── Generic exception handler ────────────────────────────────
     @application.exception_handler(Exception)

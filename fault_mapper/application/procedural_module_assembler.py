@@ -45,6 +45,10 @@ from fault_mapper.domain.procedural_models import (
     S1000DProceduralDataModule,
 )
 from fault_mapper.domain.procedural_ports import ProceduralRulesEnginePort
+from fault_mapper.domain.procedural_value_objects import (
+    ProceduralConfidence,
+    SourceSectionRef,
+)
 from fault_mapper.domain.value_objects import FieldOrigin, MappingTrace
 
 
@@ -212,6 +216,9 @@ def _build_provenance(
         source_chunk_ids=chunk_ids,
         source_table_ids=table_ids,
         source_image_ids=image_ids,
+        file_name=source.file_name,
+        file_type=source.file_type,
+        source_path=source.source_path,
     )
 
 
@@ -248,13 +255,14 @@ def _build_lineage(
     sections: list[Section],
     trace: MappingTrace,
 ) -> ProceduralLineage:
-    """Build schema-aligned lineage block."""
+    """Build schema-aligned lineage block with structured confidence."""
     origins = trace.field_origins
     avg_conf = (
         sum(o.confidence for o in origins.values()) / len(origins)
         if origins
         else 0.0
     )
+    avg_conf = round(avg_conf, 3)
 
     llm_count = sum(
         1 for o in origins.values()
@@ -267,13 +275,32 @@ def _build_lineage(
     else:
         method = "llm+rules"
 
+    # Structured source section refs (with page numbers)
+    source_section_refs = [
+        SourceSectionRef(
+            section_id=s.id,
+            page_numbers=tuple(s.page_numbers),
+        )
+        for s in sections
+        if s.id
+    ]
+
+    # Multi-dimensional confidence — use avg as default for each
+    # dimension.  Future chunks can feed per-dimension values.
+    confidence = ProceduralConfidence(
+        document_classification=avg_conf,
+        dm_code_inference=avg_conf,
+        section_typing=avg_conf,
+        step_segmentation=avg_conf,
+    )
+
     return ProceduralLineage(
         mapped_by="fault_mapper.procedural",
         mapped_at=trace.mapped_at or datetime.now(timezone.utc).isoformat(),
         mapping_ruleset_version=_MAPPING_VERSION,
         mapping_method=method,
-        source_sections=[s.id for s in sections if s.id],
-        confidence=round(avg_conf, 3),
+        source_sections=source_section_refs,
+        confidence=confidence,
     )
 
 

@@ -1,517 +1,398 @@
-# Fault Mapper — C4 Architecture Diagrams
+# fault-mapper Architecture (C4 Model)
 
-> **ARC42-compliant C4 model** for the `fault_mapper` JSON-native fault-module pipeline.
->
-> Notation follows the [C4 model](https://c4model.com) by Simon Brown.
-> Diagrams rendered with Mermaid for portability.
+> Detailed C4 architecture diagrams for the fault-mapper platform.
+> Version 0.9.0 | Dual-module: Fault + Procedural
 
 ---
 
-## Table of Contents
-
-1. [Level 1 — System Context](#level-1--system-context)
-2. [Level 2 — Container Diagram](#level-2--container-diagram)
-3. [Level 3 — Component Diagram (API Container)](#level-3--component-diagram-api-container)
-4. [Level 3 — Component Diagram (Core Application)](#level-3--component-diagram-core-application)
-5. [Level 3 — Component Diagram (Secondary Adapters)](#level-3--component-diagram-secondary-adapters)
-6. [Level 4 — Code Diagram (Mapping Pipeline)](#level-4--code-diagram-mapping-pipeline)
-7. [Level 4 — Code Diagram (Lifecycle Services)](#level-4--code-diagram-lifecycle-services)
-8. [Data Flow Diagram](#data-flow-diagram)
-9. [Deployment View](#deployment-view)
-10. [Quality Attributes / Cross-Cutting Concerns](#quality-attributes--cross-cutting-concerns)
-11. [Decision Log](#decision-log)
-
----
-
-## Level 1 — System Context
-
-Shows the **Fault Mapper** system and the external actors / systems it
-interacts with.
+## C4 Level 1 -- System Context
 
 ```mermaid
 C4Context
-    title System Context — Fault Mapper
+    title System Context Diagram -- fault-mapper
 
-    Person(reviewer, "Human Reviewer", "Reviews flagged fault modules via API / CLI")
-    Person(operator, "Platform Operator", "Monitors health, triggers sweeps")
+    Person(engineer, "Technical Author / Engineer", "Reviews and approves generated S1000D data modules")
 
-    System(faultMapper, "Fault Mapper", "JSON-native pipeline that transforms extracted document data into validated S1000D Fault Data Modules")
+    System(faultMapper, "fault-mapper", "Transforms extracted document JSON into validated S1000D Fault and Procedural Data Modules")
 
-    System_Ext(docPipeline, "Document Extraction Pipeline", "Upstream system that produces DocumentPipelineOutput JSON from PDF/IETM sources")
-    System_Ext(llmProvider, "LLM Provider", "OpenAI / Anthropic / local model server for semantic interpretation")
-    System_Ext(mongoDB, "MongoDB", "Persistent document store for trusted and review collections")
-    System_Ext(csdb, "CSDB / Downstream XML System", "Common Source DataBase that consumes approved S1000D modules")
+    System_Ext(extractionPipeline, "Document Extraction Pipeline", "Upstream system that produces DocumentPipelineOutput JSON from PDFs/HTML")
+    System_Ext(llmProvider, "LLM Provider", "OpenAI-compatible API for semantic interpretation fallback")
+    System_Ext(mongodb, "MongoDB", "Persistent storage for trusted/review module collections")
+    System_Ext(downstream, "Downstream Consumers", "IETM publishing, CSDB, or other S1000D-consuming systems")
 
-    Rel(docPipeline, faultMapper, "Sends DocumentPipelineOutput JSON", "HTTP / file")
-    Rel(faultMapper, llmProvider, "Sends interpretation prompts", "HTTPS / chat-completions API")
-    Rel(faultMapper, mongoDB, "Reads / writes fault modules", "pymongo / TCP 27017")
-    Rel(faultMapper, csdb, "Hands off approved modules", "TrustedModuleHandoffPort hook")
-    Rel(reviewer, faultMapper, "Approve / Reject review items", "HTTP API / CLI")
-    Rel(operator, faultMapper, "Health checks, reconciliation sweeps", "HTTP API / CLI")
+    Rel(extractionPipeline, faultMapper, "Sends DocumentPipelineOutput JSON", "HTTP / CLI")
+    Rel(faultMapper, llmProvider, "Semantic interpretation requests", "HTTPS / API key")
+    Rel(faultMapper, mongodb, "Reads/writes module records", "pymongo")
+    Rel(faultMapper, downstream, "Hands off trusted modules", "TrustedModuleHandoffPort")
+    Rel(engineer, faultMapper, "Reviews, approves/rejects modules", "HTTP API / CLI")
 ```
 
-### Context Narrative
+### Key Interactions
 
-| Actor / System | Interaction | Direction |
-|---|---|---|
-| **Document Extraction Pipeline** | Provides `DocumentPipelineOutput` JSON (sections, tables, images, schematics) | Inbound |
-| **LLM Provider** | Semantic interpretation — fault relevance, mode detection, descriptions, isolation steps, table classification, LRU/SRU extraction, schematic correlation | Outbound |
-| **MongoDB** | Durable persistence for `trusted` (approved modules) and `review` (flagged modules) collections, plus `audit` events | Outbound |
-| **CSDB / Downstream XML System** | Receives approved S1000D Fault Data Modules via the `TrustedModuleHandoffPort` hook | Outbound |
-| **Human Reviewer** | Inspects `REVIEW_REQUIRED` modules, approves or rejects them via API or CLI | Bidirectional |
-| **Platform Operator** | Monitors health, triggers reconciliation sweeps, views metrics | Bidirectional |
+| From | To | Protocol | Data |
+|---|---|---|---|
+| Extraction Pipeline | fault-mapper | HTTP POST / CLI stdin | `DocumentPipelineOutput` JSON |
+| fault-mapper | LLM Provider | HTTPS | Structured prompts, JSON responses |
+| fault-mapper | MongoDB | pymongo TCP | Module CRUD, audit events |
+| fault-mapper | Downstream | `TrustedModuleHandoffPort` | Approved `S1000DFaultDataModule` / `S1000DProceduralDataModule` |
+| Engineer | fault-mapper | HTTP / CLI | Review actions (approve/reject/sweep) |
 
 ---
 
-## Level 2 — Container Diagram
-
-Zooms into **Fault Mapper** to show its deployable containers / processes.
+## C4 Level 2 -- Container Diagram
 
 ```mermaid
 C4Container
-    title Container Diagram — Fault Mapper
+    title Container Diagram -- fault-mapper
 
-    Person(reviewer, "Human Reviewer")
-    Person(operator, "Platform Operator")
+    Person(engineer, "Engineer")
 
-    System_Boundary(fm, "Fault Mapper System") {
-
-        Container(api, "HTTP API", "Python / FastAPI / Uvicorn", "RESTful JSON API exposing /process, /process/batch, /review/*, /reconciliation/*, /health")
-        Container(cli, "CLI", "Python / Typer", "Command-line interface: process, process-batch, approve, reject, sweep, health")
-        Container(core, "Core Application", "Python", "Domain models, use cases, services, validators — zero external deps")
-        Container(adapters, "Secondary Adapters", "Python", "LLM interpreter, rules engine, repositories, serializer, validators, metrics sink, instrumented wrappers")
-        ContainerDb(inMemRepo, "In-Memory Repository", "Python dict", "Default volatile store for dev/test")
+    System_Boundary(fm, "fault-mapper") {
+        Container(api, "FastAPI HTTP Server", "Python, FastAPI, uvicorn", "Exposes 13 REST endpoints for fault + procedural processing, review, and reconciliation")
+        Container(cli, "Typer CLI", "Python, Typer", "Command-line interface with 8 commands across fault and procedural pipelines")
+        Container(appCore, "Application Core", "Pure Python", "Use cases, services, domain models, port interfaces. Zero external dependencies.")
+        Container(adapters, "Secondary Adapters", "Python", "LLM clients, rules engines, repositories, validators, serializers, instrumented wrappers")
+        Container(infra, "Infrastructure", "Python", "Composition roots (factories), configuration dataclasses")
     }
 
-    System_Ext(docPipeline, "Document Extraction Pipeline")
-    System_Ext(llmProvider, "LLM Provider")
-    System_Ext(mongoDB, "MongoDB")
-    System_Ext(csdb, "CSDB / Downstream System")
+    System_Ext(llm, "LLM Provider")
+    System_Ext(mongo, "MongoDB")
+    System_Ext(downstream, "Downstream")
 
-    Rel(reviewer, api, "Approve / Reject / List reviews", "HTTPS")
-    Rel(reviewer, cli, "approve / reject commands", "Terminal")
-    Rel(operator, api, "/health, /reconciliation/sweep", "HTTPS")
-    Rel(operator, cli, "health, sweep commands", "Terminal")
-    Rel(docPipeline, api, "POST /process, POST /process/batch", "HTTPS")
-    Rel(docPipeline, cli, "process, process-batch commands", "File + Terminal")
-
-    Rel(api, core, "Delegates to application services")
-    Rel(cli, core, "Delegates to application services")
-    Rel(core, adapters, "Calls domain port implementations")
-    Rel(adapters, llmProvider, "chat-completions API", "HTTPS")
-    Rel(adapters, mongoDB, "CRUD operations", "pymongo")
-    Rel(adapters, csdb, "on_module_stored()", "Hook")
-    Rel(adapters, inMemRepo, "Save / Get / List / Delete", "In-process")
+    Rel(engineer, api, "HTTP requests")
+    Rel(engineer, cli, "CLI commands")
+    Rel(api, appCore, "Calls use cases and services")
+    Rel(cli, appCore, "Calls use cases and services")
+    Rel(appCore, adapters, "Via port interfaces (typing.Protocol)")
+    Rel(adapters, llm, "LLM API calls")
+    Rel(adapters, mongo, "pymongo CRUD")
+    Rel(appCore, downstream, "TrustedModuleHandoffPort")
+    Rel(infra, appCore, "Wires dependencies")
+    Rel(infra, adapters, "Instantiates adapters")
 ```
 
-### Container Responsibilities
+### Container Inventory
 
-| Container | Technology | Responsibility |
-|---|---|---|
-| **HTTP API** | FastAPI + Uvicorn | Thin async handlers: DTO validation → domain conversion → service call → response DTO. Supports both sync and async `ServiceProvider`. |
-| **CLI** | Typer | Mirror of API commands for terminal use. Reads JSON files, invokes same services. |
-| **Core Application** | Pure Python | All business logic. Domain models, value objects, enums, port protocols, use cases, lifecycle services. **Zero external dependencies.** |
-| **Secondary Adapters** | Python + pymongo + jsonschema | Implements domain ports: LLM client, rules engine, repositories (in-memory / MongoDB), serializer, schema validator, structural/business-rule validators, review gate, metrics sink, instrumented decorators. |
-| **In-Memory Repository** | Python `dict` | Default volatile store; satisfies `FaultModuleRepositoryPort` for dev, test, and single-process deployments. |
+| Container | Technology | Files | Responsibility |
+|---|---|---|---|
+| **FastAPI HTTP** | FastAPI + Pydantic | 7 files | REST API (9 fault + 4 procedural endpoints) |
+| **Typer CLI** | Typer | 2 files | CLI (6 fault + 2 procedural commands) |
+| **Application Core** | Pure Python | 32 files | Use cases, services, domain models, ports |
+| **Secondary Adapters** | Python | 21 files | LLM, rules, repos, validators, serializers, metrics |
+| **Infrastructure** | Python | 4 files | Factories, config dataclasses |
 
 ---
 
-## Level 3 — Component Diagram (API Container)
+## C4 Level 3 -- Component Diagram (Application Core)
 
 ```mermaid
 C4Component
-    title Component Diagram — HTTP API Container
+    title Component Diagram -- Application Core
 
-    Container_Boundary(api, "HTTP API (FastAPI)") {
+    Container_Boundary(app, "Application Core") {
 
-        Component(appFactory, "create_app()", "FastAPI factory", "Builds FastAPI instance, registers routers, sets services")
-        Component(healthRouter, "health_router", "APIRouter", "GET /health")
-        Component(processRouter, "process_router", "APIRouter", "POST /process, POST /process/batch")
-        Component(reviewRouter, "review_router", "APIRouter", "POST /review/{id}/approve, POST /review/{id}/reject, GET /review/{id}, GET /review")
-        Component(reconRouter, "reconciliation_router", "APIRouter", "POST /reconciliation/sweep, GET /reconciliation/orphans")
-        Component(dtos, "DTOs", "Pydantic models", "ProcessRequest, BatchProcessRequest, ReviewActionRequest, SweepRequest + response counterparts")
-        Component(deps, "ServiceProvider / AsyncServiceProvider", "Dataclass", "Holds wired service instances; injected into routes")
+        Component(faultUC, "FaultMappingUseCase", "6-step orchestrator", "Coordinates section selection, mode routing, header building, content mapping, assembly, validation")
+        Component(procUC, "ProceduralMappingUseCase", "7-step orchestrator", "Coordinates classification, header, sections, steps, requirements, references, assembly")
+
+        Component(faultPersist, "FaultModulePersistenceService", "Sync persistence", "Routes APPROVED->trusted, REVIEW_REQUIRED->review")
+        Component(faultReview, "FaultModuleReviewService", "Review workflow", "Approve/reject with audit trail")
+        Component(faultRecon, "FaultModuleReconciliationService", "Orphan sweep", "Finds and purges orphaned review records")
+        Component(faultBatch, "FaultBatchProcessingService", "Sync batch", "Sequential processing with per-item isolation")
+
+        Component(procPersist, "ProceduralModulePersistenceService", "Sync persistence", "Routes APPROVED->procedural_trusted, NOT_REVIEWED->procedural_review")
+        Component(procBatch, "ProceduralBatchProcessingService", "Sync batch", "Sequential processing with per-item isolation")
+
+        Component(asyncFaultPersist, "AsyncFaultModulePersistenceService", "Async persistence", "Async variant of fault persistence")
+        Component(asyncFaultReview, "AsyncFaultModuleReviewService", "Async review", "Async variant of fault review")
+        Component(asyncFaultRecon, "AsyncFaultModuleReconciliationService", "Async reconciliation", "Async variant")
+        Component(asyncFaultBatch, "AsyncFaultBatchProcessingService", "Async batch", "Semaphore-bounded concurrent processing")
+
+        Component(asyncProcPersist, "AsyncProceduralModulePersistenceService", "Async persistence", "Async procedural persistence")
+        Component(asyncProcBatch, "AsyncProceduralBatchProcessingService", "Async batch", "Semaphore-bounded concurrent processing")
+
+        Component(domain, "Domain Layer", "Models + Ports + Value Objects", "S1000DFaultDataModule, S1000DProceduralDataModule, 12 Protocol interfaces, enums, frozen VOs")
     }
 
-    Container(core, "Core Application")
-
-    Rel(appFactory, healthRouter, "Registers")
-    Rel(appFactory, processRouter, "Registers")
-    Rel(appFactory, reviewRouter, "Registers")
-    Rel(appFactory, reconRouter, "Registers")
-    Rel(appFactory, deps, "Injects services via set_services()")
-    Rel(processRouter, dtos, "Validates request/response")
-    Rel(reviewRouter, dtos, "Validates request/response")
-    Rel(reconRouter, dtos, "Validates request/response")
-    Rel(processRouter, core, "use_case.execute(), persistence.persist(), batch.process_batch()")
-    Rel(reviewRouter, core, "review.approve(), review.reject()")
-    Rel(reconRouter, core, "reconciliation.sweep()")
+    Rel(faultUC, domain, "Creates S1000DFaultDataModule")
+    Rel(procUC, domain, "Creates S1000DProceduralDataModule")
+    Rel(faultBatch, faultUC, "Delegates per-item")
+    Rel(faultBatch, faultPersist, "Persists results")
+    Rel(procBatch, procUC, "Delegates per-item")
+    Rel(procBatch, procPersist, "Persists results")
+    Rel(asyncFaultBatch, faultUC, "via asyncio.to_thread()")
+    Rel(asyncProcBatch, procUC, "via asyncio.to_thread()")
 ```
-
-### API Endpoint Summary
-
-| Method | Path | DTO In | DTO Out | Service Called |
-|---|---|---|---|---|
-| `GET` | `/health` | — | `HealthResponse` | — |
-| `POST` | `/process` | `ProcessRequest` | `ProcessResponse` | `use_case.execute()` → `persistence.persist()` |
-| `POST` | `/process/batch` | `BatchProcessRequest` | `BatchProcessResponse` | `batch.process_batch()` |
-| `POST` | `/review/{id}/approve` | `ReviewActionRequest?` | `ReviewActionResponse` | `review.approve()` |
-| `POST` | `/review/{id}/reject` | `ReviewActionRequest?` | `ReviewActionResponse` | `review.reject()` |
-| `GET` | `/review/{id}` | — | `ReviewItemResponse` | `review.get_review_item()` |
-| `GET` | `/review` | `?limit=&offset=` | `ReviewListResponse` | `review.list_review_items()` |
-| `POST` | `/reconciliation/sweep` | `SweepRequest?` | `SweepResponse` | `reconciliation.sweep()` |
-| `GET` | `/reconciliation/orphans` | — | `OrphansResponse` | `reconciliation.find_orphaned_review_ids()` |
 
 ---
 
-## Level 3 — Component Diagram (Core Application)
+## C4 Level 3 -- Component Diagram (Secondary Adapters)
 
 ```mermaid
 C4Component
-    title Component Diagram — Core Application
+    title Component Diagram -- Secondary Adapters
 
-    Container_Boundary(core, "Core Application") {
+    Container_Boundary(sec, "Secondary Adapters") {
 
-        Component(useCase, "FaultMappingUseCase", "Application Service", "6-step orchestrator: select → route → header → map → assemble → validate")
-        Component(selector, "FaultSectionSelector", "Application Service", "Two-pass RULE→LLM section filtering")
-        Component(router, "FaultModeRouter", "Application Service", "Two-pass RULE→LLM mode determination")
-        Component(headerBuilder, "FaultHeaderBuilder", "Application Service", "Rules-only DM header construction")
-        Component(reportingMapper, "FaultReportingMapper", "Application Service", "LLM-driven fault-reporting content extraction")
-        Component(isolationMapper, "FaultIsolationMapper", "Application Service", "LLM-driven isolation decision-tree extraction")
-        Component(tableClassifier, "FaultTableClassifier", "Application Service", "Two-pass RULE→LLM table classification")
-        Component(schematicCorrelator, "FaultSchematicCorrelator", "Application Service", "Correlates schematics to fault entries")
-        Component(assembler, "FaultModuleAssembler", "Application Service", "Deterministic final assembly — no LLM, no I/O")
-        Component(validator, "FaultModuleValidator", "Application Service", "Schema + business-rule validation + review gating")
+        ComponentDb(inMemRepo, "InMemoryFaultModuleRepository", "dict-backed", "Dev/test repository")
+        ComponentDb(asyncInMemRepo, "AsyncInMemoryFaultModuleRepository", "async dict", "Async dev/test repository")
+        ComponentDb(mongoRepo, "MongoDBFaultModuleRepository", "pymongo", "Production repository")
+        ComponentDb(auditRepo, "InMemoryAuditRepository", "list-backed", "Audit event storage")
 
-        Component(persistence, "FaultModulePersistenceService", "Lifecycle Service", "APPROVED→trusted, REVIEW_REQUIRED→review routing")
-        Component(review, "FaultModuleReviewService", "Lifecycle Service", "Approve / Reject / query review queue")
-        Component(recon, "FaultModuleReconciliationService", "Lifecycle Service", "Orphan detection + cleanup sweep")
-        Component(batch, "FaultBatchProcessingService", "Lifecycle Service", "Sequential multi-doc orchestration with per-item isolation")
+        Component(llmAdapter, "LlmInterpreterAdapter", "OpenAI-compatible", "Fault LLM interpretation (7 methods)")
+        Component(rulesAdapter, "RulesAdapter", "MappingConfig", "Fault deterministic rules (14 methods)")
+        Component(procLlmAdapter, "ProceduralLlmInterpreterAdapter", "OpenAI-compatible", "Procedural LLM (6 methods)")
+        Component(procRulesAdapter, "ProceduralRulesAdapter", "Config-driven", "Procedural rules (12 methods)")
 
-        Component(asyncPersistence, "AsyncFaultModulePersistenceService", "Async Lifecycle", "Async mirror of persistence")
-        Component(asyncReview, "AsyncFaultModuleReviewService", "Async Lifecycle", "Async mirror of review")
-        Component(asyncRecon, "AsyncFaultModuleReconciliationService", "Async Lifecycle", "Async mirror of reconciliation")
-        Component(asyncBatch, "AsyncFaultBatchProcessingService", "Async Lifecycle", "Bounded-concurrency (semaphore) async batch")
+        Component(structValidator, "StructuralValidator", "Rule-based", "STRUCT-001..017")
+        Component(schemaValidator, "SchemaValidator", "jsonschema", "Draft 2020-12")
+        Component(bizValidator, "BusinessRuleValidator", "Rule-based", "BIZ-001..012")
+        Component(reviewGate, "ReviewGate", "Decision logic", "APPROVED / REVIEW_REQUIRED / REJECTED")
 
-        Component(models, "Domain Models", "Dataclasses", "S1000DFaultDataModule, DocumentPipelineOutput, and 40+ sub-models")
-        Component(valueObjects, "Value Objects", "Frozen Dataclasses", "DmCode, MappingTrace, PersistenceEnvelope, BatchReport, etc.")
-        Component(ports, "Domain Ports", "typing.Protocol", "10 port interfaces: LLM, Rules, Repository, Audit, Metrics, Handoff")
-        Component(enums, "Enums", "str/Enum", "FaultMode, ValidationStatus, ReviewStatus, FaultEntryType, etc.")
+        Component(procSchemaVal, "ProceduralSchemaValidator", "jsonschema", "Procedural schema validation")
+        Component(procBizVal, "ProceduralBusinessRuleValidator", "Rule-based", "Procedural BIZ checks")
+        Component(procReviewGate, "ProceduralReviewGate", "Decision logic", "Procedural review decisions")
+
+        Component(serializer, "ModuleSerializer", "camelCase JSON", "Fault module serialization")
+        Component(procSerializer, "ProceduralModuleSerializer", "JSON", "Procedural module serialization")
+
+        Component(instrFault, "InstrumentedServices", "Decorator pattern", "Sync fault metric wrappers")
+        Component(asyncInstrFault, "AsyncInstrumentedServices", "Decorator pattern", "Async fault metric wrappers")
+        Component(instrProc, "ProceduralInstrumentedServices", "Decorator pattern", "Procedural metric wrappers")
+
+        Component(metricsSink, "InMemoryMetricsSink", "dict-backed", "Captures counter/timing/gauge metrics")
     }
-
-    Rel(useCase, selector, "Step 1: select()")
-    Rel(useCase, router, "Step 2: resolve()")
-    Rel(useCase, headerBuilder, "Step 3: build()")
-    Rel(useCase, reportingMapper, "Step 4a: map() [REPORTING]")
-    Rel(useCase, isolationMapper, "Step 4b: map() [ISOLATION]")
-    Rel(useCase, assembler, "Step 5: assemble()")
-    Rel(useCase, validator, "Step 6: validate()")
-    Rel(reportingMapper, tableClassifier, "Classifies tables")
-    Rel(reportingMapper, schematicCorrelator, "Correlates schematics")
-    Rel(batch, useCase, "Wraps execute() per item")
-    Rel(batch, persistence, "Wraps persist() per item")
-    Rel(asyncBatch, useCase, "to_thread(execute()) per item")
-    Rel(asyncBatch, asyncPersistence, "await persist() per item")
-```
-
-### Port Dependency Map
-
-| Application Component | Ports Required |
-|---|---|
-| `FaultSectionSelector` | `RulesEnginePort`, `LlmInterpreterPort` |
-| `FaultModeRouter` | `RulesEnginePort`, `LlmInterpreterPort` |
-| `FaultHeaderBuilder` | `RulesEnginePort` |
-| `FaultReportingMapper` | `LlmInterpreterPort`, `RulesEnginePort` |
-| `FaultIsolationMapper` | `LlmInterpreterPort`, `RulesEnginePort` |
-| `FaultTableClassifier` | `RulesEnginePort`, `LlmInterpreterPort` |
-| `FaultSchematicCorrelator` | `LlmInterpreterPort`, `RulesEnginePort` |
-| `FaultModuleAssembler` | `RulesEnginePort`, `MappingReviewPolicyPort?` |
-| `FaultModulePersistenceService` | `FaultModuleRepositoryPort` |
-| `FaultModuleReviewService` | `FaultModuleRepositoryPort`, `TrustedModuleHandoffPort?`, `AuditRepositoryPort?` |
-| `FaultModuleReconciliationService` | `FaultModuleRepositoryPort`, `AuditRepositoryPort?` |
-| All instrumented wrappers | `MetricsSinkPort` |
-
----
-
-## Level 3 — Component Diagram (Secondary Adapters)
-
-```mermaid
-C4Component
-    title Component Diagram — Secondary Adapters
-
-    Container_Boundary(adapters, "Secondary Adapters") {
-
-        Component(llmAdapter, "LlmInterpreterAdapter", "Adapter", "Implements LlmInterpreterPort — wraps OpenAI-compatible chat-completions client; all prompt engineering lives here")
-        Component(rulesAdapter, "RulesAdapter", "Adapter", "Implements RulesEnginePort — 14 deterministic rule methods driven by MappingConfig")
-        Component(inMemRepo, "InMemoryFaultModuleRepository", "Adapter", "Implements FaultModuleRepositoryPort — dict-backed (collection, record_id) store")
-        Component(asyncInMemRepo, "AsyncInMemoryFaultModuleRepository", "Adapter", "Implements AsyncFaultModuleRepositoryPort — async wrapper over in-memory")
-        Component(mongoRepo, "MongoDBFaultModuleRepository", "Adapter", "Implements FaultModuleRepositoryPort — pymongo-based; logical→physical collection mapping")
-        Component(inMemAudit, "InMemoryAuditRepository", "Adapter", "Implements AuditRepositoryPort — list-backed audit store")
-        Component(asyncInMemAudit, "AsyncInMemoryAuditRepository", "Adapter", "Implements AsyncAuditRepositoryPort")
-        Component(metricsSink, "InMemoryMetricsSink", "Adapter", "Implements MetricsSinkPort — captures MetricRecord list for test inspection")
-        Component(serializer, "serialize_module()", "Pure Function", "S1000DFaultDataModule → camelCase JSON dict matching schema")
-        Component(schemaValidator, "validate_against_schema()", "Callable", "jsonschema Draft 2020-12 validation against fault_data_module.schema.json")
-        Component(structValidator, "validate_structure()", "Callable", "Hand-coded STRUCT-001..017 checks")
-        Component(bizValidator, "validate_business_rules()", "Callable", "BIZ-001..012 deterministic business checks")
-        Component(reviewGate, "default_review_gate()", "Callable", "Errors→REJECTED, warnings→NOT_REVIEWED, clean→APPROVED")
-
-        Component(instrUseCase, "InstrumentedFaultMappingUseCase", "Decorator", "Emits mapping.executed, mapping.duration_ms, mapping.failed")
-        Component(instrPersist, "InstrumentedFaultModulePersistenceService", "Decorator", "Emits persistence.executed, persistence.duration_ms")
-        Component(instrReview, "InstrumentedFaultModuleReviewService", "Decorator", "Emits review.approved, review.rejected, review.not_found")
-        Component(instrRecon, "InstrumentedFaultModuleReconciliationService", "Decorator", "Emits reconciliation.executed, reconciliation.duration_ms")
-        Component(instrBatch, "InstrumentedFaultBatchProcessingService", "Decorator", "Emits batch.executed, batch.duration_ms, batch.total/succeeded/failed")
-    }
-
-    Component(ports, "Domain Ports", "typing.Protocol", "10 port interfaces")
-    System_Ext(llmProvider, "LLM Provider")
-    System_Ext(mongoDB, "MongoDB")
-
-    Rel(llmAdapter, llmProvider, "HTTPS / chat-completions")
-    Rel(llmAdapter, ports, "Implements LlmInterpreterPort")
-    Rel(rulesAdapter, ports, "Implements RulesEnginePort")
-    Rel(inMemRepo, ports, "Implements FaultModuleRepositoryPort")
-    Rel(mongoRepo, mongoDB, "pymongo CRUD")
-    Rel(mongoRepo, ports, "Implements FaultModuleRepositoryPort")
-    Rel(inMemAudit, ports, "Implements AuditRepositoryPort")
-    Rel(metricsSink, ports, "Implements MetricsSinkPort")
-```
-
-### Port → Adapter Mapping
-
-| Domain Port | Sync Adapter(s) | Async Adapter(s) |
-|---|---|---|
-| `LlmInterpreterPort` | `LlmInterpreterAdapter` | — (not yet needed) |
-| `RulesEnginePort` | `RulesAdapter` | — (stateless, sync-only) |
-| `MappingReviewPolicyPort` | `default_review_gate()` | — |
-| `FaultModuleRepositoryPort` | `InMemoryFaultModuleRepository`, `MongoDBFaultModuleRepository` | — |
-| `AsyncFaultModuleRepositoryPort` | — | `AsyncInMemoryFaultModuleRepository` |
-| `AuditRepositoryPort` | `InMemoryAuditRepository` | — |
-| `AsyncAuditRepositoryPort` | — | `AsyncInMemoryAuditRepository` |
-| `MetricsSinkPort` | `InMemoryMetricsSink` | — (same; sync protocol) |
-| `TrustedModuleHandoffPort` | (caller-provided / optional) | — |
-
----
-
-## Level 4 — Code Diagram (Mapping Pipeline)
-
-The 6-step pipeline inside `FaultMappingUseCase.execute()`:
-
-```mermaid
-flowchart TD
-    subgraph "FaultMappingUseCase.execute(source)"
-        A["① FaultSectionSelector.select()"]
-        B["② FaultModeRouter.resolve()"]
-        C["③ FaultHeaderBuilder.build()"]
-        D{FaultMode?}
-        E["④a FaultReportingMapper.map()"]
-        F["④b FaultIsolationMapper.map()"]
-        G["⑤ FaultModuleAssembler.assemble()"]
-        H["⑥ FaultModuleValidator.validate()"]
-        OUT["S1000DFaultDataModule"]
-
-        A -->|"sections, origins"| B
-        B -->|"FaultMode, mode_origin"| C
-        C -->|"FaultHeader, header_origins"| D
-        D -->|FAULT_REPORTING| E
-        D -->|FAULT_ISOLATION| F
-        E -->|"FaultReportingContent"| G
-        F -->|"FaultIsolationContent"| G
-        G -->|"S1000DFaultDataModule (raw)"| H
-        H -->|"mutated in-place"| OUT
-    end
-
-    subgraph "Two-Pass Strategy (RULE → LLM)"
-        R1["RULE pass<br/>(keywords, heuristics)"]
-        R2["LLM fallback<br/>(semantic interpretation)"]
-        R1 -->|"confidence < threshold"| R2
-    end
-
-    subgraph "④a FaultReportingMapper internals"
-        TC["FaultTableClassifier.classify()"]
-        SC["FaultSchematicCorrelator.correlate()"]
-        LLM1["LLM: interpret_fault_descriptions()"]
-        LLM2["LLM: extract_lru_sru()"]
-        TC --> E
-        SC --> E
-        LLM1 --> E
-        LLM2 --> E
-    end
-
-    subgraph "④b FaultIsolationMapper internals"
-        LLM3["LLM: interpret_isolation_steps()"]
-        LLM3 --> F
-    end
-
-    subgraph "⑥ FaultModuleValidator internals"
-        V1["validate_against_schema()<br/>SCHEMA-* issues"]
-        V2["validate_business_rules()<br/>BIZ-* issues"]
-        V3["default_review_gate()<br/>ReviewDecision"]
-        V1 --> H
-        V2 --> H
-        V3 --> H
-    end
-
-    style A fill:#4a90d9,color:#fff
-    style B fill:#4a90d9,color:#fff
-    style C fill:#4a90d9,color:#fff
-    style E fill:#7b68ee,color:#fff
-    style F fill:#7b68ee,color:#fff
-    style G fill:#2e8b57,color:#fff
-    style H fill:#d4a017,color:#fff
-    style OUT fill:#228b22,color:#fff
-```
-
-### Mapping Strategy Legend
-
-| Strategy | Where Applied | Description |
-|---|---|---|
-| `DIRECT` | Header fields, DM-code segments | Value copied verbatim from source |
-| `RULE` | Section selection, mode routing, table classification, header construction | Deterministic keyword / heuristic match |
-| `LLM` | Fault descriptions, isolation steps, LRU/SRU extraction, schematic correlation | Semantic interpretation via LLM with structured output |
-
-Each field's strategy is tracked in `MappingTrace.field_origins` (a `dict[str, FieldOrigin]`) for full provenance.
-
----
-
-## Level 4 — Code Diagram (Lifecycle Services)
-
-```mermaid
-flowchart TD
-    subgraph "Persistence Flow"
-        P1["persist(module)"]
-        P2{validation_status?}
-        P3["serialize → PersistenceEnvelope<br/>collection='trusted'"]
-        P4["serialize → PersistenceEnvelope<br/>collection='review'"]
-        P5["PersistenceResult(success=False)<br/>'Ineligible for persistence'"]
-        P6["repo.save(envelope)"]
-        P7["PersistenceResult"]
-
-        P1 --> P2
-        P2 -->|APPROVED| P3
-        P2 -->|REVIEW_REQUIRED| P4
-        P2 -->|SCHEMA_FAILED / REJECTED / etc.| P5
-        P3 --> P6
-        P4 --> P6
-        P6 --> P7
-    end
-
-    subgraph "Review Flow"
-        R1["approve(record_id)"]
-        R2["Fetch from 'review'"]
-        R3["Update status → APPROVED"]
-        R4["Save to 'trusted'"]
-        R5["Delete from 'review'"]
-        R6["TrustedModuleHandoffPort.on_module_stored()"]
-        R7["AuditEntry(REVIEW_APPROVED)"]
-
-        R1 --> R2 --> R3 --> R4 --> R5
-        R5 --> R6
-        R5 --> R7
-
-        RJ1["reject(record_id)"]
-        RJ2["Fetch from 'review'"]
-        RJ3["Update status → REJECTED"]
-        RJ4["Save back to 'review'"]
-        RJ5["AuditEntry(REVIEW_REJECTED)"]
-
-        RJ1 --> RJ2 --> RJ3 --> RJ4
-        RJ4 --> RJ5
-    end
-
-    subgraph "Reconciliation Flow"
-        S1["sweep(dry_run, limit)"]
-        S2["List review record_ids"]
-        S3["List trusted record_ids"]
-        S4["Intersect → orphans"]
-        S5{dry_run?}
-        S6["Delete orphan from 'review'"]
-        S7["ReconciliationReport"]
-
-        S1 --> S2
-        S1 --> S3
-        S2 --> S4
-        S3 --> S4
-        S4 --> S5
-        S5 -->|No| S6
-        S5 -->|Yes| S7
-        S6 --> S7
-    end
-
-    subgraph "Batch Flow"
-        B1["process_batch(items)"]
-        B2["for each item"]
-        B3["use_case.execute(source)"]
-        B4["persistence.persist(module)"]
-        B5["BatchItemResult"]
-        B6["BatchReport"]
-
-        B1 --> B2
-        B2 --> B3
-        B3 -->|success| B4
-        B3 -->|error| B5
-        B4 --> B5
-        B2 -->|"all items done"| B6
-    end
-
-    style P3 fill:#228b22,color:#fff
-    style P4 fill:#d4a017,color:#fff
-    style P5 fill:#cd5c5c,color:#fff
-    style R4 fill:#228b22,color:#fff
-    style RJ4 fill:#cd5c5c,color:#fff
-    style S6 fill:#ff8c00,color:#fff
 ```
 
 ---
 
-## Data Flow Diagram
-
-End-to-end data transformation from source document to stored module:
+## C4 Level 3 -- Component Diagram (Fault Pipeline Detail)
 
 ```mermaid
 flowchart LR
-    subgraph "Input"
-        DOC["DocumentPipelineOutput<br/>(JSON)"]
+    subgraph "Fault Pipeline (6 Steps)"
+        A[FaultSectionSelector] -->|relevant sections| B[FaultModeRouter]
+        B -->|FaultMode| C[FaultHeaderBuilder]
+        C -->|FaultHeader| D{Mode?}
+        D -->|REPORTING| E[FaultReportingMapper]
+        D -->|ISOLATION| F[FaultIsolationMapper]
+        E -->|FaultReportingContent| G[FaultModuleAssembler]
+        F -->|FaultIsolationContent| G
+        G -->|S1000DFaultDataModule| H[FaultModuleValidator]
     end
 
-    subgraph "Pipeline — FaultMappingUseCase"
-        SEL["Section Selection<br/>→ relevant sections"]
-        MODE["Mode Routing<br/>→ REPORTING / ISOLATION"]
-        HDR["Header Building<br/>→ FaultHeader"]
-        MAP["Content Mapping<br/>→ FaultReportingContent<br/>or FaultIsolationContent"]
-        ASM["Assembly<br/>→ S1000DFaultDataModule"]
-        VAL["Validation<br/>→ validation_status<br/>+ review_status"]
+    subgraph "Supporting Services"
+        I[FaultTableClassifier]
+        J[FaultSchematicCorrelator]
     end
 
-    subgraph "Persistence"
-        SER["Serialization<br/>→ camelCase JSON dict"]
-        ENV["PersistenceEnvelope"]
-        TRUSTED[("trusted<br/>collection")]
-        REVIEW[("review<br/>collection")]
+    E -.->|classifies tables| I
+    E -.->|correlates schematics| J
+    F -.->|classifies tables| I
+
+    subgraph "Validation Layers"
+        H1[StructuralValidator]
+        H2[SchemaValidator]
+        H3[BusinessRuleValidator]
+        H4[ReviewGate]
     end
 
-    subgraph "Review Lifecycle"
-        APPROVE["Approve → trusted"]
-        REJECT["Reject → stays in review"]
+    H --> H1 --> H2 --> H3 --> H4
+```
+
+---
+
+## C4 Level 3 -- Component Diagram (Procedural Pipeline Detail)
+
+```mermaid
+flowchart LR
+    subgraph "Procedural Pipeline (7 Steps)"
+        A[ProceduralDocumentClassifier] -->|relevant sections| B[ProceduralHeaderBuilder]
+        B -->|ProceduralHeader| C[ProceduralSectionOrganizer]
+        C -->|ordered sections| D[ProceduralStepExtractor]
+        D -->|step tree| E[ProceduralRequirementExtractor]
+        E -->|requirements| F[ProceduralReferenceExtractor]
+        F -->|references| G[ProceduralModuleAssembler]
     end
 
-    subgraph "Reconciliation"
-        SWEEP["Sweep → clean orphans"]
+    subgraph "Validation"
+        V1[ProceduralSchemaValidator]
+        V2[ProceduralBusinessRuleValidator]
+        V3[ProceduralReviewGate]
     end
 
-    DOC --> SEL --> MODE --> HDR --> MAP --> ASM --> VAL
-    VAL -->|APPROVED| SER
-    VAL -->|REVIEW_REQUIRED| SER
-    SER --> ENV
-    ENV -->|"APPROVED"| TRUSTED
-    ENV -->|"REVIEW_REQUIRED"| REVIEW
-    REVIEW --> APPROVE
-    REVIEW --> REJECT
-    APPROVE --> TRUSTED
-    REVIEW --> SWEEP
-    TRUSTED --> SWEEP
+    G -->|S1000DProceduralDataModule| V1 --> V2 --> V3
+```
 
-    style TRUSTED fill:#228b22,color:#fff
-    style REVIEW fill:#d4a017,color:#fff
+---
+
+## C4 Level 4 -- Code Diagram (Domain Model)
+
+```mermaid
+classDiagram
+    class DocumentPipelineOutput {
+        +str id
+        +str full_text
+        +str file_name
+        +str file_type
+        +str source_path
+        +Metadata metadata
+        +list~Section~ sections
+        +list~SchematicsItem~ schematics
+    }
+
+    class S1000DFaultDataModule {
+        +str record_id
+        +FaultMode mode
+        +FaultHeader header
+        +FaultContent content
+        +Provenance provenance
+        +Classification classification
+        +MappingTrace trace
+        +ValidationStatus validation_status
+        +ReviewStatus review_status
+        +ValidationResults validation_results
+        +str mapping_version
+    }
+
+    class S1000DProceduralDataModule {
+        +str record_id
+        +ProceduralModuleType module_type
+        +ProceduralHeader header
+        +ProceduralContent content
+        +Provenance provenance
+        +Classification classification
+        +MappingTrace trace
+        +ReviewStatus review_status
+        +ProceduralValidationResults validation_results
+        +str mapping_version
+    }
+
+    class FaultMode {
+        <<enumeration>>
+        FAULT_REPORTING
+        FAULT_ISOLATION
+    }
+
+    class ProceduralModuleType {
+        <<enumeration>>
+        PROCEDURAL
+        DESCRIPTIVE
+    }
+
+    class ValidationStatus {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REVIEW_REQUIRED
+        SCHEMA_FAILED
+        BIZ_RULE_FAILED
+    }
+
+    class ReviewStatus {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REJECTED
+        REVIEW_REQUIRED
+        NOT_REVIEWED
+    }
+
+    class MappingTrace {
+        +dict~str,FieldOrigin~ field_origins
+    }
+
+    class FieldOrigin {
+        +MappingStrategy strategy
+        +str source_path
+        +float confidence
+    }
+
+    class BatchReport {
+        +int total
+        +int succeeded
+        +int failed
+        +int persisted_trusted
+        +int persisted_review
+        +int not_persisted
+        +float elapsed_ms
+        +list~BatchItem~ items
+    }
+
+    S1000DFaultDataModule --> FaultMode
+    S1000DFaultDataModule --> ValidationStatus
+    S1000DFaultDataModule --> ReviewStatus
+    S1000DFaultDataModule --> MappingTrace
+    S1000DProceduralDataModule --> ProceduralModuleType
+    S1000DProceduralDataModule --> ReviewStatus
+    S1000DProceduralDataModule --> MappingTrace
+    MappingTrace --> FieldOrigin
+```
+
+---
+
+## C4 Level 4 -- Code Diagram (Port Interfaces)
+
+```mermaid
+classDiagram
+    class LlmInterpreterPort {
+        <<Protocol>>
+        +assess_fault_relevance(section) RelevanceResult
+        +determine_fault_mode(sections) FaultModeResult
+        +extract_fault_descriptions(sections) list
+        +extract_isolation_steps(sections) list
+        +extract_lru_sru(sections) list
+        +correlate_schematics(schematics, sections) list
+        +classify_table(table) TableClassification
+    }
+
+    class RulesEnginePort {
+        <<Protocol>>
+        +check_fault_keywords(section) KeywordResult
+        +determine_fault_mode_by_rules(sections) FaultModeResult
+        +build_dm_code(input, mode) DmCode
+        +14 methods total
+    }
+
+    class ProceduralLlmInterpreterPort {
+        <<Protocol>>
+        +assess_procedural_relevance(section) RelevanceResult
+        +classify_section_type(section) SectionTypeResult
+        +extract_steps(section) list~ProceduralStep~
+        +extract_requirements(section) PreliminaryRequirements
+        +extract_references(section) list~Reference~
+        +determine_module_type(sections) ModuleTypeResult
+    }
+
+    class ProceduralRulesEnginePort {
+        <<Protocol>>
+        +check_procedural_keywords(section) KeywordResult
+        +classify_section_by_rules(section) SectionTypeResult
+        +build_procedural_dm_code(input, type) DmCode
+        +12 methods total
+    }
+
+    class FaultModuleRepositoryPort {
+        <<Protocol>>
+        +save_trusted(module) str
+        +save_review(module) str
+        +find_by_id(id) Module?
+        +find_review_items(limit, offset) list
+        +delete_review(id) bool
+        +count_review() int
+    }
+
+    class MetricsSinkPort {
+        <<Protocol>>
+        +increment(name, value, tags)
+        +timing(name, ms, tags)
+        +gauge(name, value, tags)
+    }
+
+    class AuditRepositoryPort {
+        <<Protocol>>
+        +record_event(event) None
+        +find_events(filter) list
+    }
 ```
 
 ---
@@ -519,106 +400,279 @@ flowchart LR
 ## Deployment View
 
 ```mermaid
-C4Deployment
-    title Deployment Diagram — Fault Mapper
+flowchart TB
+    subgraph "Development"
+        DEV_API[FastAPI + uvicorn]
+        DEV_CLI[Typer CLI]
+        DEV_REPO[(InMemoryRepository)]
+        DEV_METRICS[(InMemoryMetricsSink)]
+    end
 
-    Deployment_Node(dev, "Developer Machine", "macOS / Linux") {
-        Deployment_Node(venv, "Python 3.13 venv") {
-            Container(apiDev, "HTTP API", "uvicorn --reload", "FastAPI dev server on :8000")
-            Container(cliDev, "CLI", "python -m fault_mapper.adapters.primary.cli.main", "Typer CLI")
-            ContainerDb(inMem, "In-Memory Repository", "Python dict", "Volatile — lost on restart")
-        }
-    }
+    subgraph "Production"
+        PROD_API[FastAPI + gunicorn/uvicorn]
+        PROD_CLI[Typer CLI]
+        PROD_MONGO[(MongoDB)]
+        PROD_LLM[OpenAI API]
+        PROD_METRICS[Prometheus / Datadog]
+    end
 
-    Deployment_Node(prod, "Production Server", "Linux / Container") {
-        Deployment_Node(appRuntime, "Python 3.11+ Runtime") {
-            Container(apiProd, "HTTP API", "uvicorn / gunicorn", "FastAPI behind reverse proxy")
-            Container(cliProd, "CLI", "Cron / manual", "Reconciliation sweeps, batch processing")
-        }
-        Deployment_Node(mongoCluster, "MongoDB Cluster") {
-            ContainerDb(mongoProd, "MongoDB", "pymongo", "trusted, review, audit collections")
-        }
-    }
+    DEV_API --> DEV_REPO
+    DEV_CLI --> DEV_REPO
+    DEV_API --> DEV_METRICS
 
-    Deployment_Node(extServices, "External Services") {
-        Container(llm, "LLM Provider", "OpenAI / Anthropic / Local", "chat-completions API")
-    }
-
-    Rel(apiProd, mongoProd, "pymongo", "TCP 27017")
-    Rel(apiProd, llm, "HTTPS", "chat-completions")
-    Rel(cliProd, mongoProd, "pymongo", "TCP 27017")
-    Rel(cliProd, llm, "HTTPS", "chat-completions")
+    PROD_API --> PROD_MONGO
+    PROD_CLI --> PROD_MONGO
+    PROD_API --> PROD_LLM
+    PROD_CLI --> PROD_LLM
+    PROD_API --> PROD_METRICS
 ```
 
-### Deployment Configurations
+---
 
-| Environment | Repository | LLM | Metrics |
-|---|---|---|---|
-| **Unit tests** | `FakeFaultModuleRepository` / `AsyncFakeFaultModuleRepository` | `_StubUseCase` (no LLM) | `InMemoryMetricsSink` |
-| **Development** | `InMemoryFaultModuleRepository` | Real or mocked LLM client | `InMemoryMetricsSink` |
-| **Integration tests** | `MongoDBFaultModuleRepository` (Testcontainers) | Mocked | `InMemoryMetricsSink` |
-| **Production** | `MongoDBFaultModuleRepository` | Real LLM provider | Production metrics sink |
+## Data Flow -- Fault Module Processing
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI
+    participant UC as FaultMappingUseCase
+    participant LLM as LlmInterpreterPort
+    participant Rules as RulesEnginePort
+    participant Val as FaultModuleValidator
+    participant Persist as PersistenceService
+    participant Repo as RepositoryPort
+    participant Audit as AuditRepositoryPort
+
+    Client->>API: POST /process {DocumentPipelineOutput}
+    API->>UC: execute(input)
+    UC->>Rules: check_fault_keywords(section)
+    alt Rule confidence < threshold
+        UC->>LLM: assess_fault_relevance(section)
+    end
+    UC->>Rules: determine_fault_mode_by_rules(sections)
+    alt Rule confidence < threshold
+        UC->>LLM: determine_fault_mode(sections)
+    end
+    UC->>Rules: build_dm_code(input, mode)
+    UC->>LLM: extract_fault_descriptions(sections)
+    UC->>UC: assemble(header, content, provenance, trace)
+    UC-->>API: S1000DFaultDataModule
+    API->>Val: validate(module)
+    Val-->>API: ValidationResults
+    API->>Persist: persist(module)
+    alt APPROVED
+        Persist->>Repo: save_trusted(module)
+    else REVIEW_REQUIRED
+        Persist->>Repo: save_review(module)
+    end
+    Persist->>Audit: record_event(persistence_event)
+    API-->>Client: ProcessResponse
+```
 
 ---
 
-## Quality Attributes / Cross-Cutting Concerns
+## Data Flow -- Procedural Module Processing
 
-### Observability
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI
+    participant UC as ProceduralMappingUseCase
+    participant LLM as ProceduralLlmInterpreterPort
+    participant Rules as ProceduralRulesEnginePort
+    participant Val as ProceduralModuleValidator
+    participant Persist as ProceduralPersistenceService
+    participant Repo as RepositoryPort
 
-All services have optional **instrumented decorator wrappers** that emit metrics via `MetricsSinkPort`:
-
-| Wrapper | Metrics Emitted |
-|---|---|
-| `InstrumentedFaultMappingUseCase` | `mapping.executed`, `mapping.duration_ms`, `mapping.failed` |
-| `InstrumentedFaultModulePersistenceService` | `persistence.executed`, `persistence.duration_ms`, `persistence.failed` |
-| `InstrumentedFaultModuleReviewService` | `review.approved`, `review.rejected`, `review.not_found`, `review.duration_ms` |
-| `InstrumentedFaultModuleReconciliationService` | `reconciliation.executed`, `reconciliation.duration_ms`, `reconciliation.duplicates_found`, `reconciliation.duplicates_cleaned` |
-| `InstrumentedFaultBatchProcessingService` | `batch.executed`, `batch.duration_ms`, `batch.total`, `batch.succeeded`, `batch.failed` |
-| + Async versions of all above | Same metric names |
-
-### Auditability
-
-- `AuditRepositoryPort` / `AsyncAuditRepositoryPort` captures `AuditEntry` events:
-  - `REVIEW_APPROVED` — who approved, when, with reason
-  - `REVIEW_REJECTED` — who rejected, when, with reason
-  - `RECONCILIATION_CLEANED` / `RECONCILIATION_SKIPPED` — sweep outcomes
-
-### Testability
-
-| Strategy | Implementation |
-|---|---|
-| Hexagonal ports | All external dependencies behind `typing.Protocol` interfaces |
-| Test doubles | `FakeFaultModuleRepository`, `AsyncFakeFaultModuleRepository`, `FakeAuditRepository`, `AsyncFakeAuditRepository` |
-| In-memory defaults | `InMemoryFaultModuleRepository`, `InMemoryAuditRepository`, `InMemoryMetricsSink` |
-| Factory isolation | `FaultMapperFactory` accepts all dependencies via constructor injection |
-| Coverage | **563 passed, 65 skipped** across unit, integration, API, and CLI tests |
-
-### Error Isolation (Batch)
-
-- **Partial success model** — one item failing does not prevent others
-- Per-item `try/except` wraps both mapping and persistence
-- `BatchItemResult` captures error details alongside any partial module metadata
-- `BatchReport` provides aggregate counters for monitoring
+    Client->>API: POST /procedural/process {DocumentPipelineOutput}
+    API->>UC: execute(input)
+    UC->>Rules: check_procedural_keywords(section)
+    alt Rule confidence < threshold
+        UC->>LLM: assess_procedural_relevance(section)
+    end
+    UC->>Rules: build_procedural_dm_code(input, type)
+    UC->>Rules: classify_section_by_rules(section)
+    alt Rule confidence < threshold
+        UC->>LLM: classify_section_type(section)
+    end
+    UC->>LLM: extract_steps(section)
+    UC->>LLM: extract_requirements(section)
+    UC->>LLM: extract_references(section)
+    UC->>UC: assemble(header, content, provenance, trace)
+    UC-->>API: S1000DProceduralDataModule
+    API->>Val: validate(module)
+    Val-->>API: ProceduralValidationResults
+    API->>Persist: persist(module)
+    alt APPROVED
+        Persist->>Repo: save_trusted(module)
+    else NOT_REVIEWED
+        Persist->>Repo: save_review(module)
+    end
+    API-->>Client: ProceduralProcessResponse
+```
 
 ---
 
-## Decision Log
+## Data Flow -- Batch Processing
 
-| # | Decision | Rationale |
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI
+    participant Batch as BatchProcessingService
+    participant UC as MappingUseCase
+    participant Persist as PersistenceService
+
+    Client->>API: POST /process/batch {items: [...]}
+    API->>Batch: process_batch(items)
+    loop For each item
+        Batch->>UC: execute(item)
+        alt Success
+            Batch->>Persist: persist(module)
+        else Error
+            Note over Batch: Record error, continue
+        end
+    end
+    Batch-->>API: BatchReport
+    API-->>Client: BatchProcessResponse
+```
+
+### Async Batch (Bounded Concurrency)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI
+    participant AsyncBatch as AsyncBatchProcessingService
+    participant Semaphore as asyncio.Semaphore(N)
+    participant UC as MappingUseCase
+
+    Client->>API: POST /process/batch {items: [...]}
+    API->>AsyncBatch: process_batch(items)
+    par Concurrent (max N)
+        AsyncBatch->>Semaphore: acquire()
+        AsyncBatch->>UC: asyncio.to_thread(execute, item1)
+        AsyncBatch->>Semaphore: release()
+    and
+        AsyncBatch->>Semaphore: acquire()
+        AsyncBatch->>UC: asyncio.to_thread(execute, item2)
+        AsyncBatch->>Semaphore: release()
+    and
+        Note over AsyncBatch: ... up to N concurrent
+    end
+    AsyncBatch-->>API: BatchReport
+    API-->>Client: BatchProcessResponse
+```
+
+---
+
+## Cross-Cutting Concerns
+
+### Observability Architecture
+
+```mermaid
+flowchart LR
+    subgraph "Instrumented Wrappers (Decorator Pattern)"
+        A[InstrumentedFaultMappingUseCase]
+        B[InstrumentedFaultModulePersistenceService]
+        C[InstrumentedFaultModuleReviewService]
+        D[InstrumentedFaultModuleReconciliationService]
+        E[InstrumentedFaultBatchProcessingService]
+        F[InstrumentedProceduralMappingUseCase]
+        G[InstrumentedProceduralPersistenceService]
+        H[InstrumentedProceduralBatchProcessingService]
+    end
+
+    subgraph "MetricsSinkPort"
+        M[increment / timing / gauge]
+    end
+
+    A --> M
+    B --> M
+    C --> M
+    D --> M
+    E --> M
+    F --> M
+    G --> M
+    H --> M
+
+    M --> I[(InMemoryMetricsSink)]
+    M --> J[(Prometheus / Datadog / Custom)]
+```
+
+### Dependency Injection (Composition Roots)
+
+```mermaid
+flowchart TB
+    subgraph "FaultMapperFactory"
+        FC[AppConfig] --> FW[Wire fault adapters]
+        FW --> FUC[FaultMappingUseCase]
+        FW --> FPS[FaultModulePersistenceService]
+        FW --> FRS[FaultModuleReviewService]
+        FW --> FRCS[FaultModuleReconciliationService]
+        FW --> FBS[FaultBatchProcessingService]
+    end
+
+    subgraph "ProceduralMapperFactory"
+        PC[ProceduralAppConfig] --> PW[Wire procedural adapters]
+        PW --> PUC[ProceduralMappingUseCase]
+        PW --> PPS[ProceduralModulePersistenceService]
+        PW --> PBS[ProceduralBatchProcessingService]
+    end
+```
+
+---
+
+## Architecture Decision Records
+
+### ADR-1: Hexagonal Architecture
+
+**Decision:** Use hexagonal (ports-and-adapters) architecture.
+
+**Rationale:** The system must support multiple deployment modes (HTTP API, CLI), multiple persistence backends (in-memory, MongoDB), and multiple LLM providers. Hexagonal architecture enables this flexibility while keeping the domain logic pure and testable.
+
+### ADR-2: Two-Pass Strategy (RULE then LLM)
+
+**Decision:** Always attempt deterministic rule-based interpretation before falling back to LLM.
+
+**Rationale:** LLM calls are expensive (latency + cost) and non-deterministic. Rules provide fast, free, reproducible results for well-structured inputs. LLM is the semantic fallback for ambiguous or novel content.
+
+### ADR-3: typing.Protocol over ABC
+
+**Decision:** Use `typing.Protocol` for all port interfaces instead of `abc.ABC`.
+
+**Rationale:** Structural subtyping (duck typing) allows any adapter to satisfy a port without explicit inheritance. This reduces coupling and makes testing with fakes trivial.
+
+### ADR-4: Frozen Dataclasses for Domain Objects
+
+**Decision:** All domain models, value objects, and configuration are frozen (immutable) dataclasses.
+
+**Rationale:** Immutability prevents accidental mutation bugs, makes objects hashable, and clarifies the data flow (new objects are created, old ones are never modified).
+
+### ADR-5: Per-Item Error Isolation in Batch Processing
+
+**Decision:** Batch processing catches per-item errors and continues, never aborting the entire batch.
+
+**Rationale:** In production, a single malformed document should not prevent processing of the remaining batch. The `BatchReport` captures both successes and failures for downstream handling.
+
+### ADR-6: Async via asyncio.to_thread()
+
+**Decision:** Use cases remain synchronous; async services wrap them with `asyncio.to_thread()`.
+
+**Rationale:** The mapping logic is CPU-bound (no I/O in the use case itself). Running it in a thread pool keeps the event loop free for I/O-bound operations (repository, audit, metrics) while avoiding the complexity of making every internal component async.
+
+---
+
+## File Counts Summary
+
+| Layer | Files | Purpose |
 |---|---|---|
-| **ADR-01** | Hexagonal / Ports-and-Adapters architecture | Decouples domain logic from I/O; enables swapping LLM providers, databases, and metrics backends without touching business code |
-| **ADR-02** | Domain layer has zero external dependencies | Ensures testability and portability; all external concerns are adapter-level |
-| **ADR-03** | Two-pass RULE → LLM strategy | Deterministic rules are cheaper and more predictable; LLM is fallback for ambiguous cases. Confidence thresholds are configurable. |
-| **ADR-04** | `FaultMappingUseCase` is always sync | CPU-bound LLM prompt construction + response parsing; no I/O in the use case itself (LLM calls are within adapters). In async contexts, wrapped with `asyncio.to_thread()`. |
-| **ADR-05** | Dual sync/async service mirrors | Supports both synchronous CLI and asynchronous API deployments without forcing either model |
-| **ADR-06** | `MappingTrace` with `FieldOrigin` per field | Full provenance — every output field records its strategy (DIRECT/RULE/LLM), source path, and confidence score |
-| **ADR-07** | JSON-native persistence (no XML/XSD) | Modules stored as serialised JSON dicts; XML generation is a downstream concern outside this system |
-| **ADR-08** | Staged trust: `review` → `trusted` collections | Approved modules go directly to trusted; review-required modules are held for human decision. Reconciliation sweep cleans orphans. |
-| **ADR-09** | Batch as orchestration-only (no logic duplication) | `FaultBatchProcessingService` wraps existing single-item use case + persistence; no mapping/validation code is duplicated |
-| **ADR-10** | Bounded concurrency for async batch | `asyncio.Semaphore(max_concurrency)` prevents overwhelming downstream persistence backends while maintaining throughput |
-| **ADR-11** | Optional dependencies via `None` defaults | LLM client, audit repo, metrics sink, handoff hook are all optional. Factory and providers handle `None` gracefully. |
-| **ADR-12** | Instrumented wrappers as decorators | Metrics concern is separated from business logic; wrappers are applied at factory level when a `MetricsSinkPort` is provided |
-
----
-
-> **Generated**: 14 April 2026 | **Source**: fault_mapper codebase survey | **Notation**: C4 + Mermaid
+| Domain | 8 | Models, enums, ports, value objects |
+| Application | 32 | Use cases, services (sync + async) |
+| Primary Adapters | 9 | HTTP API (7) + CLI (2) |
+| Secondary Adapters | 21 | LLM, rules, repos, validators, serializers, metrics |
+| Infrastructure | 4 | Factories, configuration |
+| Schemas | 1 | JSON Schema |
+| **Source Total** | **84** | |
+| Tests | 70 | Unit (35) + API (2) + CLI (2) + Integration (4) + Fakes (9) + Fixtures (4) + conftest (1) + helpers |
+| **Grand Total** | **154** | |

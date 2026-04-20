@@ -11,9 +11,16 @@ from __future__ import annotations
 
 from fault_mapper.domain.enums import MappingStrategy
 from fault_mapper.domain.models import DocumentPipelineOutput
-from fault_mapper.domain.procedural_enums import ProceduralModuleType
+from fault_mapper.domain.procedural_enums import (
+    ProceduralModuleType,
+    SecurityClassification,
+)
 from fault_mapper.domain.procedural_models import ProceduralHeader
 from fault_mapper.domain.procedural_ports import ProceduralRulesEnginePort
+from fault_mapper.domain.procedural_value_objects import (
+    DataOrigin,
+    ResponsiblePartnerCompany,
+)
 from fault_mapper.domain.value_objects import FieldOrigin
 
 
@@ -89,5 +96,25 @@ class ProceduralHeaderBuilder:
             issue_info=issue_info,
             issue_date=issue_date,
             dm_title=dm_title,
+            security_classification=SecurityClassification.UNCLASSIFIED,
+            responsible_partner_company=ResponsiblePartnerCompany(),
+            origin=DataOrigin(is_extracted=True, is_human_reviewed=False),
         )
+
+        origins["header.security_classification"] = FieldOrigin(
+            strategy=MappingStrategy.RULE,
+            source_path="config.default_security_classification",
+            confidence=1.0,
+        )
+        origins["header.responsible_partner_company"] = FieldOrigin(
+            strategy=MappingStrategy.RULE,
+            source_path="config.default_responsible_partner",
+            confidence=1.0,
+        )
+        origins["header.origin"] = FieldOrigin(
+            strategy=MappingStrategy.RULE,
+            source_path="pipeline.extraction_context",
+            confidence=1.0,
+        )
+
         return header, origins
