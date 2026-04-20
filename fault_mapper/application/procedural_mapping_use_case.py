@@ -34,6 +34,7 @@ from fault_mapper.domain.procedural_models import (
 )
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
 from fault_mapper.application.procedural_document_classifier import (
     ProceduralDocumentClassifier,
 )
@@ -185,7 +186,7 @@ class ProceduralMappingUseCase:
         ``shell.source_section_id``.
         """
         source_map: dict[str, Section] = {
-            _section_key(s): s for s in source_sections
+            section_key(s): s for s in source_sections
         }
 
         populated: list[ProceduralSection] = []
@@ -207,11 +208,3 @@ class ProceduralMappingUseCase:
             populated.append(new_section)
 
         return populated
-
-
-# ── Module-level helpers ─────────────────────────────────────────────
-
-
-def _section_key(section: Section) -> str:
-    """Stable key for a section (prefers ``id``, falls back to order)."""
-    return section.id or f"section_{section.section_order}"

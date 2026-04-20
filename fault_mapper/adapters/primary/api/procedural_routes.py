@@ -30,13 +30,13 @@ from fault_mapper.adapters.primary.api.procedural_dtos import (
 from fault_mapper.adapters.primary.api.procedural_dependencies import (
     ProceduralServiceProvider,
 )
+from fault_mapper.adapters.primary._conversion_helpers import (
+    dict_to_section as _to_domain_section,
+    json_to_pipeline_output,
+)
 from fault_mapper.domain.models import (
-    Chunk,
     DocumentPipelineOutput,
-    ImageAsset,
     Metadata,
-    Section,
-    TableAsset,
 )
 
 # ── Module-level service holder ──────────────────────────────────────
@@ -64,54 +64,8 @@ procedural_router = APIRouter(prefix="/procedural", tags=["procedural"])
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  HELPERS (reuse the same DTO → domain conversion)
+#  HELPERS
 # ═══════════════════════════════════════════════════════════════════════
-
-
-def _to_domain_section(s: dict[str, Any]) -> Section:
-    """Convert a raw section dict into a domain ``Section``."""
-    chunks = [
-        Chunk(
-            chunk_text=c.get("chunk_text", ""),
-            original_text=c.get("original_text", ""),
-            contextual_prefix=c.get("contextual_prefix", ""),
-            metadata=c.get("metadata", {}),
-            id=c.get("id"),
-        )
-        for c in (s.get("chunks") or [])
-    ]
-    images = [
-        ImageAsset(
-            caption=im.get("caption"),
-            page_number=im.get("page_number"),
-            figure_label=im.get("figure_label"),
-            id=im.get("id"),
-        )
-        for im in (s.get("images") or [])
-    ]
-    tables = [
-        TableAsset(
-            caption=tb.get("caption"),
-            page_number=tb.get("page_number"),
-            headers=tb.get("headers", []),
-            rows=tb.get("rows", []),
-            markdown_summary=tb.get("markdown_summary"),
-            id=tb.get("id"),
-        )
-        for tb in (s.get("tables") or [])
-    ]
-    return Section(
-        section_title=s.get("section_title", ""),
-        section_order=s.get("section_order", 0),
-        section_type=s.get("section_type", "general"),
-        section_text=s.get("section_text", ""),
-        level=s.get("level", 1),
-        page_numbers=s.get("page_numbers", []),
-        chunks=chunks,
-        images=images,
-        tables=tables,
-        id=s.get("id"),
-    )
 
 
 def _request_to_pipeline_output(req: ProcessRequest) -> DocumentPipelineOutput:

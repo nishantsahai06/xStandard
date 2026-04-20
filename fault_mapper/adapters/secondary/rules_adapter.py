@@ -34,27 +34,15 @@ from fault_mapper.domain.value_objects import (
 )
 from fault_mapper.infrastructure.config import MappingConfig
 
+from fault_mapper.adapters.secondary._adapter_helpers import (
+    collapse_whitespace as _collapse_whitespace,
+    safe_get as _safe_get,
+)
+
 
 # ─── helpers ─────────────────────────────────────────────────────────
 
-_WS_RE = re.compile(r"\s+")
 _NON_ALNUM_RE = re.compile(r"[^a-zA-Z0-9 ]")
-
-
-def _collapse_whitespace(text: str) -> str:
-    """Collapse runs of whitespace to a single space and strip."""
-    return _WS_RE.sub(" ", text).strip()
-
-
-def _safe_get(meta: dict, *keys: str, default: str = "") -> str:
-    """Walk nested dicts safely, returning *default* on any miss."""
-    current: object = meta
-    for key in keys:
-        if isinstance(current, dict):
-            current = current.get(key, default)
-        else:
-            return default
-    return str(current) if current is not None else default
 
 
 # ═══════════════════════════════════════════════════════════════════════

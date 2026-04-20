@@ -24,11 +24,8 @@ import typer
 from fault_mapper.adapters.primary.api.procedural_dependencies import (
     ProceduralServiceProvider,
 )
-from fault_mapper.domain.models import (
-    Chunk,
-    DocumentPipelineOutput,
-    Metadata,
-    Section,
+from fault_mapper.adapters.primary._conversion_helpers import (
+    json_to_pipeline_output as _json_to_pipeline_output,
 )
 
 procedural_cli = typer.Typer(
@@ -60,49 +57,6 @@ def _svc() -> ProceduralServiceProvider:
 def _out(data: dict) -> None:
     """Print compact JSON to stdout."""
     typer.echo(json.dumps(data, indent=2, default=str))
-
-
-def _json_to_pipeline_output(data: dict) -> DocumentPipelineOutput:
-    """Convert a raw JSON dict to ``DocumentPipelineOutput``."""
-    sections: list[Section] = []
-    for s in data.get("sections", []):
-        chunks = [
-            Chunk(
-                chunk_text=c.get("chunk_text", ""),
-                original_text=c.get("original_text", ""),
-                contextual_prefix=c.get("contextual_prefix", ""),
-                metadata=c.get("metadata", {}),
-                id=c.get("id"),
-            )
-            for c in s.get("chunks", [])
-        ]
-        sections.append(
-            Section(
-                section_title=s.get("section_title", ""),
-                section_order=s.get("section_order", 0),
-                section_type=s.get("section_type", "general"),
-                section_text=s.get("section_text", ""),
-                level=s.get("level", 1),
-                page_numbers=s.get("page_numbers", []),
-                chunks=chunks,
-                id=s.get("id"),
-            )
-        )
-
-    raw_meta = data.get("metadata", {})
-    return DocumentPipelineOutput(
-        id=data["id"],
-        full_text=data.get("full_text", ""),
-        file_name=data.get("file_name", "unknown"),
-        file_type=data.get("file_type", "pdf"),
-        source_path=data.get("source_path", ""),
-        metadata=Metadata(
-            upload_metadata=raw_meta.get("upload_metadata", {}),
-            extraction_metadata=raw_meta.get("extraction_metadata", {}),
-        ),
-        sections=sections,
-        schematics=[],
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════════

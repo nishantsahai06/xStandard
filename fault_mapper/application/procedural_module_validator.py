@@ -24,6 +24,10 @@ from fault_mapper.domain.value_objects import (
     ValidationIssue,
 )
 
+from fault_mapper.application._validation_helpers import (
+    compute_validation_result,
+)
+
 
 # Type aliases for injected validators / gate
 StructuralValidatorFn = Callable[
@@ -68,7 +72,7 @@ class ProceduralModuleValidator:
         structural_issues = self._structural(module)
         business_issues = self._business(module)
 
-        validation_result = _compute_result(
+        validation_result = compute_validation_result(
             structural_issues, business_issues,
         )
 
@@ -85,33 +89,6 @@ class ProceduralModuleValidator:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS (pure)
 # ═══════════════════════════════════════════════════════════════════════
-
-
-def _compute_result(
-    structural_issues: list[ValidationIssue],
-    business_issues: list[ValidationIssue],
-) -> ModuleValidationResult:
-    has_structural_errors = any(i.is_error for i in structural_issues)
-    has_business_errors = any(i.is_error for i in business_issues)
-    has_warnings = any(
-        i.is_warning
-        for i in (*structural_issues, *business_issues)
-    )
-
-    if has_structural_errors:
-        status = ValidationStatus.SCHEMA_FAILED
-    elif has_business_errors:
-        status = ValidationStatus.BUSINESS_RULE_FAILED
-    elif has_warnings:
-        status = ValidationStatus.REVIEW_REQUIRED
-    else:
-        status = ValidationStatus.APPROVED
-
-    return ModuleValidationResult(
-        structural_issues=structural_issues,
-        business_issues=business_issues,
-        status=status,
-    )
 
 
 def _build_procedural_validation_results(

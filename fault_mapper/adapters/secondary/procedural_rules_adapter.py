@@ -37,10 +37,14 @@ from fault_mapper.infrastructure.procedural_config import (
     ProceduralMappingConfig,
 )
 
+from fault_mapper.adapters.secondary._adapter_helpers import (
+    collapse_whitespace as _collapse_whitespace,
+    safe_get as _safe_get,
+)
+
 
 # ─── helpers ─────────────────────────────────────────────────────────
 
-_WS_RE = re.compile(r"\s+")
 _STEP_PREFIX_RE = re.compile(
     r"^(?:step\s*)?(\d+)([a-zA-Z])?(?:\.\s*)?$|"
     r"^(\d+)\.(\d+[a-zA-Z]?)$|"
@@ -68,22 +72,6 @@ _SECTION_TYPE_KEYWORDS: dict[str, ProceduralSectionType] = {
     "preparation": ProceduralSectionType.SETUP,
     "procedure": ProceduralSectionType.PROCEDURE,
 }
-
-
-def _collapse_whitespace(text: str) -> str:
-    """Collapse runs of whitespace to a single space and strip."""
-    return _WS_RE.sub(" ", text).strip()
-
-
-def _safe_get(meta: dict, *keys: str, default: str = "") -> str:
-    """Walk nested dicts safely, returning *default* on any miss."""
-    current: object = meta
-    for key in keys:
-        if isinstance(current, dict):
-            current = current.get(key, default)
-        else:
-            return default
-    return str(current) if current is not None else default
 
 
 # ═══════════════════════════════════════════════════════════════════════

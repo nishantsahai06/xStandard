@@ -1,8 +1,7 @@
 """Shared pure helpers for application-layer mappers.
 
 These functions are stateless, port-free, and independently testable.
-Extracted here to avoid duplication across ``FaultReportingMapper``
-and ``FaultIsolationMapper``.
+Extracted here to avoid duplication across application-layer services.
 """
 
 from __future__ import annotations
@@ -16,6 +15,14 @@ from fault_mapper.domain.models import (
     TypedText,
 )
 from fault_mapper.domain.value_objects import LruSruExtraction
+
+
+# ── Section key helper ───────────────────────────────────────────────
+
+
+def section_key(section: Section) -> str:
+    """Stable key for a section (prefers ``id``, falls back to order)."""
+    return section.id or f"section_{section.section_order}"
 
 # ── Maximum paragraphs included in CommonInfo ────────────────────────
 _MAX_COMMON_INFO_PARAGRAPHS = 20

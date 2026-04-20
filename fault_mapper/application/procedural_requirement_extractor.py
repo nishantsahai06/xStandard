@@ -22,6 +22,8 @@ from fault_mapper.domain.procedural_value_objects import (
 )
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
+
 
 _REQUIREMENT_TABLE_KEYWORDS = frozenset({
     "equipment", "tool", "supply", "consumable",
@@ -144,7 +146,7 @@ class ProceduralRequirementExtractor:
             item = _interpretation_to_item(interp)
             items.append(item)
 
-            key = f"req.llm.{_section_key(section)}.{idx}"
+            key = f"req.llm.{section_key(section)}.{idx}"
             origins[key] = FieldOrigin(
                 strategy=MappingStrategy.LLM,
                 source_path=(
@@ -160,10 +162,6 @@ class ProceduralRequirementExtractor:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS
 # ═══════════════════════════════════════════════════════════════════════
-
-
-def _section_key(section: Section) -> str:
-    return section.id or f"section_{section.section_order}"
 
 
 def _infer_requirement_type(headers_lower: list[str]) -> str:

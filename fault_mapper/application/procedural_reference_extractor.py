@@ -23,6 +23,8 @@ from fault_mapper.domain.procedural_ports import (
 )
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
+
 
 # ── Deterministic patterns ───────────────────────────────────────────
 
@@ -85,7 +87,7 @@ class ProceduralReferenceExtractor:
         origins: dict[str, FieldOrigin] = {}
 
         for section in sections:
-            sec_key = _section_key(section)
+            sec_key = section_key(section)
 
             # Pass 1: deterministic regex extraction
             det_refs, det_origins = self._extract_by_regex(
@@ -260,10 +262,6 @@ class ProceduralReferenceExtractor:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS
 # ═══════════════════════════════════════════════════════════════════════
-
-
-def _section_key(section: Section) -> str:
-    return section.id or f"section_{section.section_order}"
 
 
 def _deduplicate_refs(

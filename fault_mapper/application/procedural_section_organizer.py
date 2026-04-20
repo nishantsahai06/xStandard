@@ -21,6 +21,8 @@ from fault_mapper.domain.procedural_ports import (
 )
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
+
 
 class ProceduralSectionOrganizer:
     """Classifies, orders, and groups source sections into shells.
@@ -66,7 +68,7 @@ class ProceduralSectionOrganizer:
 
         for section in sections:
             section_type, origin = self._classify(section, threshold)
-            key = f"section_type.{_section_key(section)}"
+            key = f"section_type.{section_key(section)}"
             origins[key] = origin
 
             shell = ProceduralSection(
@@ -77,7 +79,7 @@ class ProceduralSectionOrganizer:
                 level=section.level,
                 page_numbers=list(section.page_numbers),
                 raw_section_text=section.section_text,
-                source_section_id=_section_key(section),
+                source_section_id=section_key(section),
             )
             shells.append(shell)
 
@@ -127,10 +129,3 @@ class ProceduralSectionOrganizer:
             source_chunk_id=section.id,
         )
 
-
-# ── Module-level helpers ─────────────────────────────────────────────
-
-
-def _section_key(section: Section) -> str:
-    """Stable key for a section (prefers ``id``, falls back to order)."""
-    return section.id or f"section_{section.section_order}"

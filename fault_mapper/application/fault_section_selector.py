@@ -19,6 +19,8 @@ from fault_mapper.domain.models import DocumentPipelineOutput, Section
 from fault_mapper.domain.ports import LlmInterpreterPort, RulesEnginePort
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
+
 
 class FaultSectionSelector:
     """Selects fault-relevant sections from pipeline output.
@@ -60,7 +62,7 @@ class FaultSectionSelector:
         origins: dict[str, FieldOrigin] = {}
 
         for section in source.sections:
-            key = _section_key(section)
+            key = section_key(section)
             origin = self._evaluate(section, keywords, section_types, threshold)
             if origin is not None:
                 selected.append(section)
@@ -112,9 +114,4 @@ class FaultSectionSelector:
         return None
 
 
-# ── Module-level helpers ─────────────────────────────────────────────
 
-
-def _section_key(section: Section) -> str:
-    """Stable key for a section (prefers ``id``, falls back to order)."""
-    return section.id or f"section_{section.section_order}"

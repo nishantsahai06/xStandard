@@ -21,6 +21,8 @@ from fault_mapper.domain.procedural_ports import (
 from fault_mapper.domain.procedural_value_objects import StepInterpretation
 from fault_mapper.domain.value_objects import FieldOrigin
 
+from fault_mapper.application._shared_helpers import section_key
+
 
 class ProceduralStepExtractor:
     """Extracts and structures procedural steps from source sections.
@@ -79,7 +81,7 @@ class ProceduralStepExtractor:
             step = self._build_step(interp, section)
             flat_steps.append(step)
 
-            key = f"step.{_section_key(section)}.{step.step_number}"
+            key = f"step.{section_key(section)}.{step.step_number}"
             origins[key] = FieldOrigin(
                 strategy=MappingStrategy.LLM,
                 source_path=(
@@ -141,11 +143,6 @@ class ProceduralStepExtractor:
 # ═══════════════════════════════════════════════════════════════════════
 #  MODULE-LEVEL HELPERS (pure, no port access)
 # ═══════════════════════════════════════════════════════════════════════
-
-
-def _section_key(section: Section) -> str:
-    """Stable key for a section."""
-    return section.id or f"section_{section.section_order}"
 
 
 def _wire_sub_steps(
