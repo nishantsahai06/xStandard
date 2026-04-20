@@ -90,6 +90,7 @@ from fault_mapper.domain.ports import (
     MetricsSinkPort,
     TrustedModuleHandoffPort,
 )
+from fault_mapper.infrastructure._instrumentation import wrap_with_metrics
 
 
 class FaultMapperFactory:
@@ -210,15 +211,10 @@ class FaultMapperFactory:
             validator=validator,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.instrumented_services import (
-                InstrumentedFaultMappingUseCase,
-            )
-            return InstrumentedFaultMappingUseCase(
-                inner=use_case, metrics=self._metrics_sink,
-            )
-
-        return use_case
+        from fault_mapper.adapters.secondary.instrumented_services import (
+            InstrumentedFaultMappingUseCase,
+        )
+        return wrap_with_metrics(use_case, self._metrics_sink, InstrumentedFaultMappingUseCase)
 
     def create_persistence_service(self) -> FaultModulePersistenceService:
         """Wire and return a persistence service.
@@ -236,15 +232,10 @@ class FaultMapperFactory:
         repo = self._repository or InMemoryFaultModuleRepository()
         svc = FaultModulePersistenceService(repository=repo)
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.instrumented_services import (
-                InstrumentedFaultModulePersistenceService,
-            )
-            return InstrumentedFaultModulePersistenceService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.instrumented_services import (
+            InstrumentedFaultModulePersistenceService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, InstrumentedFaultModulePersistenceService)
 
     def create_review_service(self) -> FaultModuleReviewService:
         """Wire and return a review workflow service.
@@ -272,15 +263,10 @@ class FaultMapperFactory:
             audit_repo=self._audit_repo,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.instrumented_services import (
-                InstrumentedFaultModuleReviewService,
-            )
-            return InstrumentedFaultModuleReviewService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.instrumented_services import (
+            InstrumentedFaultModuleReviewService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, InstrumentedFaultModuleReviewService)
 
     def create_reconciliation_service(
         self,
@@ -305,15 +291,10 @@ class FaultMapperFactory:
             audit_repo=self._audit_repo,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.instrumented_services import (
-                InstrumentedFaultModuleReconciliationService,
-            )
-            return InstrumentedFaultModuleReconciliationService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.instrumented_services import (
+            InstrumentedFaultModuleReconciliationService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, InstrumentedFaultModuleReconciliationService)
 
     # ── Async service factories ────────────────────────────────────
 
@@ -336,15 +317,10 @@ class FaultMapperFactory:
             use_case=use_case, persistence=persistence,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.instrumented_services import (
-                InstrumentedFaultBatchProcessingService,
-            )
-            return InstrumentedFaultBatchProcessingService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.instrumented_services import (
+            InstrumentedFaultBatchProcessingService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, InstrumentedFaultBatchProcessingService)
 
     def create_async_batch_processing_service(
         self,
@@ -376,15 +352,10 @@ class FaultMapperFactory:
             max_concurrency=max_concurrency,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.async_instrumented_services import (
-                AsyncInstrumentedFaultBatchProcessingService,
-            )
-            return AsyncInstrumentedFaultBatchProcessingService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.async_instrumented_services import (
+            AsyncInstrumentedFaultBatchProcessingService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, AsyncInstrumentedFaultBatchProcessingService)
 
     def create_async_persistence_service(self):  # noqa: ANN201
         """Wire and return an async persistence service.
@@ -402,15 +373,10 @@ class FaultMapperFactory:
         repo = self._async_repository or AsyncInMemoryFaultModuleRepository()
         svc = AsyncFaultModulePersistenceService(repository=repo)
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.async_instrumented_services import (
-                AsyncInstrumentedFaultModulePersistenceService,
-            )
-            return AsyncInstrumentedFaultModulePersistenceService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.async_instrumented_services import (
+            AsyncInstrumentedFaultModulePersistenceService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, AsyncInstrumentedFaultModulePersistenceService)
 
     def create_async_review_service(self):  # noqa: ANN201
         """Wire and return an async review service."""
@@ -427,15 +393,10 @@ class FaultMapperFactory:
             audit_repo=self._async_audit_repo,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.async_instrumented_services import (
-                AsyncInstrumentedFaultModuleReviewService,
-            )
-            return AsyncInstrumentedFaultModuleReviewService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.async_instrumented_services import (
+            AsyncInstrumentedFaultModuleReviewService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, AsyncInstrumentedFaultModuleReviewService)
 
     def create_async_reconciliation_service(self):  # noqa: ANN201
         """Wire and return an async reconciliation service."""
@@ -452,15 +413,10 @@ class FaultMapperFactory:
             audit_repo=self._async_audit_repo,
         )
 
-        if self._metrics_sink is not None:
-            from fault_mapper.adapters.secondary.async_instrumented_services import (
-                AsyncInstrumentedFaultModuleReconciliationService,
-            )
-            return AsyncInstrumentedFaultModuleReconciliationService(
-                inner=svc, metrics=self._metrics_sink,
-            )
-
-        return svc
+        from fault_mapper.adapters.secondary.async_instrumented_services import (
+            AsyncInstrumentedFaultModuleReconciliationService,
+        )
+        return wrap_with_metrics(svc, self._metrics_sink, AsyncInstrumentedFaultModuleReconciliationService)
 
     def build_mongo_repository(self) -> Any:
         """Build a ``MongoDBFaultModuleRepository`` from the current config.

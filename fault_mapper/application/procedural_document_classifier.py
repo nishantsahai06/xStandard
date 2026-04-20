@@ -18,6 +18,7 @@ from fault_mapper.domain.procedural_ports import (
     ProceduralRulesEnginePort,
 )
 from fault_mapper.domain.value_objects import FieldOrigin
+from fault_mapper.application._shared_helpers import section_key
 
 
 class ProceduralDocumentClassifier:
@@ -60,7 +61,7 @@ class ProceduralDocumentClassifier:
         origins: dict[str, FieldOrigin] = {}
 
         for section in source.sections:
-            key = _section_key(section)
+            key = section_key(section)
             origin = self._evaluate(
                 section, keywords, section_types, threshold,
             )
@@ -122,7 +123,3 @@ class ProceduralDocumentClassifier:
 
 # ── Module-level helpers ─────────────────────────────────────────────
 
-
-def _section_key(section: Section) -> str:
-    """Stable key for a section (prefers ``id``, falls back to order)."""
-    return section.id or f"section_{section.section_order}"
